@@ -62,7 +62,6 @@ try:    if (!list_empty(freePageList)){
         // printk("alloc mem kva 0x%lx\n", new->kva_begin);
         return new->kva_begin + PAGE_SIZE;        
     }else{
-        // memCurr += PAGE_SIZE;    
         printk("Failed to allocPage, I am pid: %d\n", current_running->pid);
         do_block(&current_running->list, &freePageManager.wait_list);
         goto try;

@@ -101,14 +101,7 @@ LIB_TINYC   = $(DIR_BUILD)/libtinyc.a
 
 SRC_SHELL	= $(DIR_TEST)/shell.c
 SRC_USER    = $(wildcard $(DIR_TEST)/*.c)
-ELF_USER    = $(patsubst %.c, %, $(foreach file, $(SRC_USER), $(DIR_BUILD)/$(notdir $(file)))) \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/dasics-test-free \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/dasics-test-jump \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/dasics-test-rwx \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/dasics-test-syscall \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/dasics-test-ofb \
-  $(RISCV_ROOTFS_HOME)/rootfsimg/build/attack-case
-
+ELF_USER    = $(patsubst %.c, %, $(foreach file, $(SRC_USER), $(DIR_BUILD)/$(notdir $(file))))
 
 USER_PROG   = $(DIR_KERNEL)/user_programs.c include/user_programs.h
 
@@ -209,8 +202,6 @@ elf: $(ELF_MAIN) $(LIB_TINYC) $(ELF_USER) #$(ELF_BOOT)
 # Host Linux Rules
 # -----------------------------------------------------------------------
 
-# $(ELF_CREATEIMAGE): $(SRC_CREATEIMAGE)
-# 	$(HOST_CC) $(SRC_CREATEIMAGE) -o $@ -ggdb -Wall
 
 $(ELF_ELF2CHAR): $(SRC_ELF2CHAR)
 	$(HOST_CC) $(SRC_ELF2CHAR) -o $@ -ggdb -Wall
@@ -218,8 +209,5 @@ $(ELF_ELF2CHAR): $(SRC_ELF2CHAR)
 $(ELF_GENERATEMAPPING): $(SRC_GENERATEMAPPING)
 	$(HOST_CC) $(SRC_GENERATEMAPPING) -o $@ -ggdb -Wall
 
-# image: $(ELF_CREATEIMAGE) $(ELF_BOOT) $(ELF_MAIN) $(ELF_USER)
-# 	cd $(DIR_BUILD) && ./$(<F) --extended $(filter-out $(<F), $(^F)) 
-# && dd if=/dev/zero of=image oflag=append conv=notrunc bs=512MB count=2
 
 .PHONY: image

@@ -73,7 +73,6 @@ extern void init_pcb_stack(
 
     pcb->pge_num = 0;
 
-
 }
 
 /**
