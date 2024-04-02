@@ -1,0 +1,77 @@
+/dts-v1/;
+
+/ {
+	L18: soc {
+		L2: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&L4 3 &L4 7>;
+			//reg = <0x0 0x38000000 0x0 0x10000>;
+			reg = <0x0 0x2000000 0x0 0x10000>;
+			reg-names = "control";
+			clock-frequency-mhz = <100>;
+		};
+        /*
+		L14: serial@60000000 {
+			compatible = "xilinx,uartlite";
+			//interrupt-parent = <&L1>;
+			interrupts = <3>;
+			reg = <0x0 0x60000000 0x0 0x1000>;
+			reg-names = "control";
+		};
+        */
+		/*
+		sdhci: mmc {
+		  compatible = "nemu-sdhost";
+				reg = <0x0 0x40002000 0x0 0x1000>;
+		};
+		*/
+
+
+		clkc: misc_clk_0 {
+			#clock-cells = <1>;
+			clock-frequency = <125000000>;
+			compatible = "fixed-clock";
+            linux,phandle = <0x7>;
+		};
+
+
+     ethernet1: ethernet@31010000 {
+         compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
+         reg = <0 0x31010000 0 0x10000>;
+         reg-names = "stmmaceth";
+         interrupt-parent = <&PLIC>;
+         interrupts = <3&PLIC 2 0>, <&PLIC 1 0>;
+         interrupt-names = "eth_lpi", "macirq", "eth_wake_irq";
+         clock-names = "stmmaceth", "mac-clk-tx", "mac-clk-rx";
+         clocks = <&clkc 25>, <&clkc 26>, <&clkc 27>;
+         //st,syscon = <&syscfg 0x4>;
+         snps,pbl = <8>;
+         snps,mixed-burst;
+         phy-mode = "rgmii";
+     };
+		EXTINTR: external-interrupts {
+			interrupt-parent = <&PLIC>;
+			interrupts = <1 2 3 4 5>;
+		};
+		PLIC: interrupt-controller@c000000 {
+			#interrupt-cells = <1>;
+			compatible = "riscv,plic0";
+			interrupt-controller;
+			interrupts-extended = <&L4 11 &L4 9>;
+			reg = <0 0xc000000 0 0x4000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <5>;
+		};
+   };
+
+  /*
+  chosen {
+    bootargs = "root=/dev/mmcblk0 rootfstype=ext4 ro rootwait earlycon";
+  };
+  */
+	L11: memory@100000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};

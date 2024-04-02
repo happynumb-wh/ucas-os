@@ -1,0 +1,34 @@
+/dts-v1/;
+
+/ {
+	L18: soc {
+		L2: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&L4 3 &L4 7>;
+			reg = <0x0 0x38000000 0x0 0x10000>;
+			reg-names = "control";
+			clock-frequency-mhz = <50>;
+		};
+		L14: serial@30000000 {
+			compatible = "xilinx,uartlite";
+			//interrupt-parent = <&L1>;
+			interrupts = <3>;
+			reg = <0x0 0x30000000 0x0 0x10>;
+			reg-names = "control";
+		};
+		eth_dma0: eth_dma@30200000 {
+			reg = <0x30200000 0x10000>;
+		};
+    		sdhci: mmc {
+      			compatible = "nemu-sdhost";
+			reg = <0x0 0x40002000 0x0 0x1000>;
+    		};
+	};
+  chosen {
+    bootargs = "root=/dev/mmcblk0 rootfstype=ext4 ro rootwait earlycon";
+  };
+	L11: memory@100000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};

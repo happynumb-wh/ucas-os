@@ -1,0 +1,94 @@
+/dts-v1/;
+
+/ {
+	L18: soc {
+		L2: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&L4 3 &L4 7>;
+			//reg = <0x0 0x38000000 0x0 0x10000>;
+			reg = <0x0 0x2000000 0x0 0x10000>;
+			reg-names = "control";
+			clock-frequency-mhz = <100>;
+		};
+        /*
+		L14: serial@60000000 {
+			compatible = "xilinx,uartlite";
+			//interrupt-parent = <&L1>;
+			interrupts = <3>;
+			reg = <0x0 0x60000000 0x0 0x1000>;
+			reg-names = "control";
+		};
+        */
+		/*
+		sdhci: mmc {
+		  compatible = "nemu-sdhost";
+				reg = <0x0 0x40002000 0x0 0x1000>;
+		};
+		*/
+
+
+		clkc: misc_clk_0 {
+			#clock-cells = <1>;
+			clock-frequency = <100000000>;
+			compatible = "fixed-clock";
+            linux,phandle = <0x7>;
+		};
+
+
+		ethernet2@31010000 {
+   			clock-names = "phy_ref_clk", "apb_pclk";
+			clocks = <&clkc 17>, <&clkc 15>;
+			compatible = "snps,dwc-qos-ethernet-4.10";
+			interrupt-parent = <&PLIC>;
+			interrupts = <2>;
+			reg = <0 0x31010000 0 0x10000>;
+			phy-handle = <&phy2>;
+			phy-mode = "rgmii";
+			//phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;
+
+			snps,en-tx-lpi-clockgating;
+			snps,en-lpi;
+			snps,write-requests = <2>;
+			snps,read-requests = <16>;
+			snps,burst-map = <0x7>;
+			snps,txpbl = <8>;
+			snps,rxpbl = <2>;
+
+			dma-coherent;
+
+			mdio {
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+                phy2: phy@1 {
+                          compatible = "ethernet-phy-ieee802.3-c22";
+                          device_type = "ethernet-phy";
+                          reg = <0x1>;
+                      };
+            };
+		};
+		EXTINTR: external-interrupts {
+			interrupt-parent = <&PLIC>;
+			interrupts = <1 2 3 4 5>;
+		};
+		PLIC: interrupt-controller@c000000 {
+			#interrupt-cells = <1>;
+			compatible = "riscv,plic0";
+			interrupt-controller;
+			interrupts-extended = <&L4 11 &L4 9>;
+			reg = <0 0xc000000 0 0x4000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <5>;
+		};
+   };
+
+  /*
+  chosen {
+    bootargs = "root=/dev/mmcblk0 rootfstype=ext4 ro rootwait earlycon";
+  };
+  */
+	L11: memory@100000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};

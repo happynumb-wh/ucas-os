@@ -1,0 +1,32 @@
+/dts-v1/;
+
+/ {
+	L18: soc {
+		L2: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&L4 3 &L4 7 &L5 3 &L5 7>;
+			reg = <0x0 0xa2000000 0x0 0x10000>;
+			reg-names = "control";
+      clock-frequency-mhz = <500>;
+		};
+		L14: serial@60000000 {
+			compatible = "ns16550a";
+			//interrupt-parent = <&L1>;
+			interrupts = <3>;
+			reg = <0x0 0xa10003f8 0x0 0x1000>;
+			reg-names = "control";
+		};
+		sdhci: mmc {
+      			compatible = "nemu-sdhost";
+			reg = <0x0 0xa3000000 0x0 0x1000>;
+    		};
+	};
+  chosen {
+    //bootargs = "console=/dev/hvc0 root=/dev/mmcblk0 rootfstype=ext4 ro rootwait earlycon=sbi"; // for linux 5.0
+    bootargs = "root=/dev/mmcblk0 rootfstype=ext4 ro rootwait earlycon";
+  };
+	L11: memory@100000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x2000000>;
+	};
+};

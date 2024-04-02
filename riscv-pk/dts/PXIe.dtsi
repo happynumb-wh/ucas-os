@@ -1,0 +1,149 @@
+/dts-v1/;
+
+/ {
+	L18: soc {
+		L2: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&L4 3 &L4 7>;
+			reg = <0x0 0x38000000 0x0 0x10000>;
+			reg-names = "control";
+			clock-frequency-mhz = <150>;
+		};
+		L1: interrupt-controller@c000000 {
+			#interrupt-cells = <1>;
+			compatible = "riscv,plic0";
+			interrupt-controller;
+			interrupts-extended = <&L4 9>;
+			reg = <0x0 0x3c000000 0x0 0x4000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <5>;
+		};
+		L14: serial@60000000 {
+			compatible = "xilinx,uartlite";
+			//interrupt-parent = <&L1>;
+			interrupts = <3>;
+			reg = <0x0 0x40600000 0x0 0x1000>;
+			reg-names = "control";
+		};
+	};
+
+	amba_pl@0 {
+		#address-cells = < 0x02 >;
+		#size-cells = < 0x02 >;
+		compatible = "simple-bus";
+		ranges;
+
+		dma@60010000 {
+			#dma-cells = < 0x01 >;
+			clock-names = "s_axi_lite_aclk\0m_axi_sg_aclk\0m_axi_mm2s_aclk\0m_axi_s2mm_aclk";
+			clocks = < 0x07 0x07 0x07 0x07 >;
+			#interrupt-cells = < 0x01 >;
+			interrupt-parent = <&L1>;
+			interrupts = < 0x01 0x02 >;
+			reg = < 0x00 0x40000000 0x00 0x1000 >;
+			xlnx,addrwidth = < 0x20 >;
+			xlnx,include-sg;
+			linux,phandle = < 0x08 >;
+			phandle = < 0x08 >;
+
+			dma-channel@60010000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				dma-channels = < 0x01 >;
+				interrupts = < 0x01 >;
+				xlnx,datawidth = < 0x20 >;
+				xlnx,device-id = < 0x00 >;
+			};
+
+			dma-channel@60010030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				dma-channels = < 0x01 >;
+				interrupts = < 0x02 >;
+				xlnx,datawidth = < 0x20 >;
+				xlnx,device-id = < 0x00 >;
+			};
+		};
+
+		misc_clk_0: misc_clk_0 {
+			#clock-cells = < 0x00 >;
+			clock-frequency = < 0x5f5e100 >;
+			compatible = "fixed-clock";
+			linux,phandle = < 0x07 >;
+			phandle = < 0x07 >;
+		};
+
+		ethernet@48000000 {
+			axistream-connected = < 0x08 >;
+			axistream-control-connected = < 0x08 >;
+			clock-frequency = < 0x5f5e100 >;
+			compatible = "xlnx,dummy-ethernet-1.00.a";
+			device_type = "network";
+			interrupts = < 0x04 0x02 >;
+			phy-handle = < 0x09 >;
+			phy-mode = "sgmii";
+			xlnx,avb = < 0x00 >;
+			xlnx,enable-lvds = < 0x00 >;
+			xlnx,mcast-extend = < 0x00 >;
+			xlnx,phy-type = < 0x05 >;
+			xlnx,phyaddr = < 0x01 >;
+			xlnx,rxcsum = < 0x00 >;
+			xlnx,rxmem = < 0x1000 >;
+			xlnx,rxvlan-strp = < 0x00 >;
+			xlnx,rxvlan-tag = < 0x00 >;
+			xlnx,rxvlan-tran = < 0x00 >;
+			xlnx,simulation = < 0x00 >;
+			xlnx,stats = < 0x01 >;
+			xlnx,temac-addr-width = < 0x0c >;
+			xlnx,txcsum = < 0x00 >;
+			xlnx,txmem = < 0x1000 >;
+			xlnx,txvlan-strp = < 0x00 >;
+			xlnx,txvlan-tag = < 0x00 >;
+			xlnx,txvlan-tran = < 0x00 >;
+			xlnx,type = < 0x01 >;
+			local-mac-address = [ 00 0a 35 43 00 00 ];
+
+			mdio {
+				#address-cells = < 0x01 >;
+				#size-cells = < 0x00 >;
+
+				phy@1 {
+					device_type = "ethernet-phy";
+					reg = < 0x02 >;
+					compatible = "Xilinx PCS/PMA PHY";
+					linux,phandle = < 0x09 >;
+					phandle = < 0x09 >;
+				};
+			};
+		};
+
+    xdma_0: axi-pcie@70000000 {
+        #address-cells = <3>;
+        #interrupt-cells = <1>;
+        #size-cells = <2>;
+        clock-names = "sys_clk", "sys_clk_gt";
+        clocks = <&misc_clk_0>, <&misc_clk_0>;
+        compatible = "xlnx,xdma-host-3.00";
+        device_type = "pci";
+        interrupt-map = <0 0 0 1 &pcie_intc_0 1>, <0 0 0 2 &pcie_intc_0 2>, <0 0 0 3 &pcie_intc_0 3>, <0 0 0 4 &pcie_intc_0 4>;
+        interrupt-map-mask = <0 0 0 7>;
+        interrupt-names = "misc", "msi0", "msi1";
+        interrupt-parent = <&L1>;
+        interrupts = <3 4 5>;
+        ranges = <0x03000000 0x00000000 0x50000000 0x0 0x50000000 0x00000000 0x10000000>;
+        reg = <0x00000000 0x60000000 0x0 0x20000000>;
+        pcie_intc_0: interrupt-controller {
+            #address-cells = <0>;
+            #interrupt-cells = <1>;
+            interrupt-controller ;
+        };
+    };
+	};
+
+  chosen {
+		bootargs = "root=/dev/nvme0n1p1 rootfstype=ext4 rw rootwait earlycon noinitrd";
+  };
+	L11: memory@100000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x40000000>;
+	};
+};
