@@ -38,7 +38,7 @@
 #define SBI_CALL_3(which, arg0, arg1, arg2) \
     SBI_CALL(which, arg0, arg1, arg2)
 
-static inline void sbi_console_putstr(char *str)
+static inline void sbi_console_putstr(const char *str)
 {
     // FIXME: machine mode cannot access `str`
     // if `str` is a virtual address. So we use

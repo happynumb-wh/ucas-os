@@ -83,8 +83,8 @@ long sys_get_tick();
 void sys_screen_clear(void);
 pid_t getpid();
 
-uint8_t sys_disk_read(uint8_t *data_buff, uint32_t sector, uint32_t count);
-uint8_t sys_disk_write(uint8_t *data_buff, uint32_t sector, uint32_t count);
+uint8_t sys_disk_read(void *data_buff, uint32_t sector, uint32_t count);
+uint8_t sys_disk_write(void *data_buff, uint32_t sector, uint32_t count);
 
 
 int open(const char *path, int flags);

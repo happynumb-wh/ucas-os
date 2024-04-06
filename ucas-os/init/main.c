@@ -22,7 +22,6 @@
 #include <common.h>
 #include <assert.h>
 #include <os/elf.h>
-#include <user_programs.h>
 
 spinlock_init(cpu);
 
@@ -48,7 +47,7 @@ static pid_t init_shell()
     init_pcb_queue();
     init_pre_load();
 
-    char *shell_argv[] = {
+    const char *shell_argv[] = {
         "shell",
         NULL,
     };
@@ -61,12 +60,12 @@ static pid_t init_shell()
     pid0_pcb_master.end_time = 0;
     pid0_pcb_master.utime = 0;
     pid0_pcb_master.stime = 0;
-    pid0_pcb_master.pgdir = pa2kva(PGDIR_PA);
+    pid0_pcb_master.pgdir = PGDIR_PA;
 
     pid0_pcb_slave.end_time = 0;
     pid0_pcb_slave.utime = 0;
     pid0_pcb_slave.stime = 0;
-    pid0_pcb_slave.pgdir = pa2kva(PGDIR_PA);
+    pid0_pcb_slave.pgdir = PGDIR_PA;
     sys_time_master = sys_time_slave = get_ticks();
     current_running_master = &pid0_pcb_master;
     current_running_slave  = &pid0_pcb_slave;
@@ -216,11 +215,7 @@ static void init_syscall(void)
     syscall[SYS_renameat2]           = (long int (*)())&fat32_renameat2;
 }
 
-
-// The beginning of everything >_< ~~~~~~~~~~~~~~
-int main(unsigned long mhartid)
-{   
-    if (!mhartid) {
+static void setup_first_core(){
         printk("> [INIT] First core enter kernel\n\r");
         // init kernel lock
         // init_kernel_lock();
@@ -229,28 +224,27 @@ int main(unsigned long mhartid)
         uint32_t free_page_num = init_mem();
         printk("> [INIT] %d Mem initialization succeeded.\n\r", free_page_num); 
         
-        // // init fd_table
-        // init_fd_table();
-        // init_sig_table();
-        // printk("> [INIT] fd and sig table initialization succeeded.\n\r");
+        // init fd_table
+        init_fd_table();
+        init_sig_table();
+        printk("> [INIT] fd and sig table initialization succeeded.\n\r");
         // init shell
         pid_t shell_pid =  init_shell();
         printk("> [INIT] shell initialization succeeded, pid: %ld.\n\r", shell_pid);
 
 
-        ((uintptr_t *)(pa2kva(PGDIR_PA)))[1] = NULL;
-        ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = NULL;
+        ((uintptr_t *)(PGDIR_PA))[1] = 0;
+        ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = 0;
 
         pid0_pcb_master.core_id = 0;
 
-        // knock down
         time_base = TIME_BASE;//sbi_read_fdt(TIMEBASE);
 
-        // binit();
-        // printk("> [INIT] bio cache initialization succeeded.\n\r"); 
+        binit();
+        printk("> [INIT] bio cache initialization succeeded.\n\r"); 
 
-        // fat32_init();
-        // printk("> [INIT] FAT32 init succeeded.\n\r");
+        fat32_init();
+        printk("> [INIT] FAT32 init succeeded.\n\r");
         // init interrupt (^_^)
         init_exception();
         printk("> [INIT] Interrupt processing initialization succeeded.\n\r");   
@@ -261,16 +255,18 @@ int main(unsigned long mhartid)
         init_screen();
         printk("> [INIT] SCREEN initialization succeeded.\n\r");
         // init futex
-        // init_system_futex();
-        // printk("> [INIT] System_futex initialization succeeded.\n\r");
+        init_system_futex();
+        printk("> [INIT] System_futex initialization succeeded.\n\r");
         // init socket
         // init_socket();
         // printk("> [INIT] Socket initialization succeeded.\n\r");
-        // while(1);
-        // init_pre_load();
-        // do_pre_load(dll_linker, LOAD);
-        // printk("> [INIT] Init preload linker %s succeeded.\n\r", dll_linker);
-        
+}
+
+// The beginning of everything >_< ~~~~~~~~~~~~~~
+int main(unsigned long mhartid)
+{   
+    if (!mhartid) {
+        setup_first_core();
     }else{
         printk("> [INIT] Second core enter kernel\n");
         // wait clean boot map

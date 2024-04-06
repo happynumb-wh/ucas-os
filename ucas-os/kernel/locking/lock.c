@@ -41,7 +41,7 @@ void do_mutex_lock_init(mutex_lock_t *lock)
 {
     init_list(&lock->block_queue);
     lock->status = UNLOCKED;
-    lock->pid = NULL;
+    lock->pid = 0;
 }
 /* acquire a mutex lock */
 void do_mutex_lock_acquire(mutex_lock_t *lock)

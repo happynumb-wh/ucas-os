@@ -7,7 +7,9 @@
 #include <os/spinlock.h>
 #include <os/string.h>
 #include <fs/file.h>
+#include <fs/fat32.h>
 #include <os/futex.h>
+#include <compile.h>
 #include <screen.h>
 #include <stdio.h>
 #include <assert.h>
@@ -27,9 +29,9 @@
  * no return 
  * 
  */
-extern void init_pcb_stack(
+void init_pcb_stack(
     ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point,
-    pcb_t *pcb, int argc, char *argv[])
+    pcb_t *pcb)
 {
     // trap pointer
     regs_context_t *pt_regs =
@@ -100,7 +102,7 @@ void init_clone_stack(pcb_t *pcb, void * tls)
     pcb->switch_context->ra = (reg_t)&ret_from_exception ;
     pcb->switch_context->sp = pcb->kernel_sp             ;
 
-    pcb->save_context->sp   = pcb->user_stack_top == USER_STACK_ADDR ?  current_running->save_context->sp\ 
+    pcb->save_context->sp   = pcb->user_stack_top == USER_STACK_ADDR ?  current_running->save_context->sp \
                                         : pcb->user_stack_top;
     // the tp may not be the pcb
     if (pcb->flag & CLONE_SETTLS)
@@ -149,8 +151,7 @@ uintptr_t load_process_memory(const char * path, pcb_t * initpcb)
                                 initpcb->pgdir, \
                                 &length,
                                 initpcb,
-                                &dynamic,
-                                alloc_page_helper
+                                &dynamic
     );
 
     if(entry_point == 0)
@@ -338,7 +339,7 @@ void init_execve_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode)
  * @param argv the argv
  * @return return the true argc num
  */
-int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, char* argv[])
+int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, const char* argv[])
 {
     
     int mid_argc;
@@ -378,7 +379,7 @@ int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, char* a
     if (redirect1 | redirect2)
     {
         // the redirect file name
-        char *redirect_file = argv[mid_argc - 1];
+        const char *redirect_file = argv[mid_argc - 1];
         int fd = 0;
         fat32_close(1); //close STDOUT
         if(redirect1 && ((fd = fat32_openat(AT_FDCWD,redirect_file,O_WRONLY,0)) != -ENOENT)){
@@ -457,7 +458,7 @@ void set_argc_argv_std(int argc, char * argv[], pcb_t *init_pcb)
  * @param filename the filename
  */
 uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
-            char *argv[], char *envp[], char *filename)
+            const char *argv[], const char *envp[], const char *filename)
 {
     // the kva of the user_top
     uintptr_t kustack_top = get_kva_of(init_pcb->user_stack_top - PAGE_SIZE, init_pcb->pgdir) + PAGE_SIZE;
@@ -513,7 +514,7 @@ uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
         kargv = kargv + strlen(argv[j]) + 1;
     }
     // kargv_pointer += sizeof(uintptr_t*) * argc;
-    *((uintptr_t *)kargv_pointer + argc) = NULL;
+    *((uintptr_t *)kargv_pointer + argc) = 0;
 
     kargv_pointer += (argc + 1) * sizeof(uintptr_t *);
 
@@ -524,7 +525,7 @@ uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
         new_argv = new_argv + strlen(envp[j]) + 1;
         kargv = kargv + strlen(envp[j]) + 1;
     }
-    *((uintptr_t *)kargv_pointer + envp_num) = NULL;
+    *((uintptr_t *)kargv_pointer + envp_num) = 0;
 
     kargv_pointer += (envp_num + 1) * sizeof(uintptr_t *);
 
@@ -542,10 +543,10 @@ uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
     // printk("aux_vec: %lx \n", kargv_pointer);
     /* 6. copy aux on the user_stack */
     // memcpy(kargv_pointer, aux_vec, sizeof(aux_elem_t) * (AUX_CNT + 1));
-    *((uintptr_t *)kargv_pointer + AUX_CNT + 1) = NULL;
+    *((uintptr_t *)kargv_pointer + AUX_CNT + 1) = 0;
 
     /* 7. copy the restore on the user stack */
-    memcpy(kustack_top - SIZE_RESTORE, __restore, SIZE_RESTORE);
+    memcpy((char *)(kustack_top - SIZE_RESTORE), __restore, SIZE_RESTORE);
     /* 8. return user_stack */
     return init_pcb->user_stack_top - tot_length;
     
@@ -556,7 +557,7 @@ uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
  * @param argv the argv array
  * @return return the argc num
  */
-uint64_t get_num_from_parm(char *parm[])
+uint64_t get_num_from_parm(const char *parm[])
 {
     uint64_t num = 0;
     if (parm)
@@ -572,7 +573,6 @@ void copy_on_write(PTE src_pgdir, PTE dst_pgdir)
     PTE *kernelBase = (PTE *)pa2kva(PGDIR_PA);    
     PTE *src_base = (PTE *)src_pgdir;
     PTE *dst_base = (PTE *)dst_pgdir;
-    int copy_num = 0;
     for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
     {
         /* kernel space or null*/
@@ -634,9 +634,9 @@ void handle_exit_pcb(pcb_t * exitPcb)
         if (!(exitPcb->flag & CLONE_VM)) 
             recycle_page_num = recycle_page_part(exitPcb->pgdir, exitPcb->exe_load);
     #else
-        int recycle_page_num;
+        int __maybe_unused recycle_page_num;
         if (!(exitPcb->flag & CLONE_VM)) 
-            recycle_page_num =recycle_page_default(exitPcb->pgdir);
+            recycle_page_num = recycle_page_default(exitPcb->pgdir);
     #endif
     recycle_pcb_default(exitPcb);
     freePage(exitPcb->kernel_stack_base);    
@@ -729,7 +729,7 @@ try:    if (!list_empty(freePcbList)){
         do_block(&current_running->list, &available_queue.wait_list);
         goto try;
     }
-    return -1;
+    return NULL;
 }
 
 /**

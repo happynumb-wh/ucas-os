@@ -77,16 +77,19 @@ typedef struct {
 
 extern SD_CardInfo cardinfo;
 
-uint8_t sd_init(void);
+uint8_t sd_init(void); 
 void sdcard_init(void);
-uint8_t sd_read_sector(uint8_t *data_buff, uint32_t sector, uint32_t count);
-uint8_t sd_write_sector(uint8_t *data_buff, uint32_t sector, uint32_t count);
+uint8_t sd_read_sector(void *data_buff, uint32_t sector, uint32_t count);
+uint8_t sd_write_sector(void *data_buff, uint32_t sector, uint32_t count);
 //uint8_t sd_read_sector_dma(uint8_t *data_buff, uint32_t sector, uint32_t count);
 //uint8_t sd_write_sector_dma(uint8_t *data_buff, uint32_t sector, uint32_t count);
 
+uint8_t sd_write_sector_bio(struct buf *a, uint32_t count);
+uint8_t sd_read_sector_bio(struct buf *a, uint32_t count);
+
 void disk_init(void);
-uint8_t disk_read(uint8_t *data_buff, uint32_t sector, uint32_t count);
-uint8_t disk_write(uint8_t *data_buff, uint32_t sector, uint32_t count);
+uint8_t disk_read(void *data_buff, uint32_t sector, uint32_t count);
+uint8_t disk_write(void *data_buff, uint32_t sector, uint32_t count);
 uint8_t disk_read_bio(struct buf *a, uint32_t num);
 uint8_t disk_write_bio(struct buf *a, uint32_t num);
 // void disk_intr();

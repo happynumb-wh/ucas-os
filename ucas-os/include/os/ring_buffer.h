@@ -10,15 +10,13 @@
 #include <type.h>
 
 #define RING_BUFFER_SIZE 4096
-#pragma pack(8)
 struct ring_buffer {
 	mutex_lock_t lock; /* FOR NOW no use */
 	size_t size;		// for future use
-	int32_t head;		// read from head
-	int32_t tail;		// write from tail
+	size_t head;		// read from head
+	size_t tail;		// write from tail
 	char buf[RING_BUFFER_SIZE + 1]; // left 1 byte
 };
-#pragma pack()
 
 int wait_ring_buffer_read(struct ring_buffer *rbuf, time_t final_ticks);
 int wait_ring_buffer_write(struct ring_buffer *rbuf, time_t final_ticks);
@@ -32,23 +30,24 @@ static inline void init_ring_buffer(struct ring_buffer *rbuf)
 	return ;
 }
 
-static inline int ring_buffer_used(struct ring_buffer *rbuf)
+static inline size_t ring_buffer_used(struct ring_buffer *rbuf)
 {
+
 	return (rbuf->tail - rbuf->head + rbuf->size) % (rbuf->size);
 }
 
-static inline int ring_buffer_free(struct ring_buffer *rbuf)
+static inline size_t ring_buffer_free(struct ring_buffer *rbuf)
 {
 	// let 1 byte to distinguish empty buffer and full buffer
 	return rbuf->size - ring_buffer_used(rbuf) - 1;
 }
 
-static inline int ring_buffer_empty(struct ring_buffer *rbuf)
+static inline size_t ring_buffer_empty(struct ring_buffer *rbuf)
 {
 	return ring_buffer_used(rbuf) == 0;
 }
 
-static inline int ring_buffer_full(struct ring_buffer *rbuf)
+static inline size_t ring_buffer_full(struct ring_buffer *rbuf)
 {
 	return ring_buffer_free(rbuf) == 0;
 }
@@ -81,7 +80,7 @@ static inline size_t read_ring_buffer(struct ring_buffer *rbuf, char *buf, size_
 }
 
 // rbuf should have enough space for buf
-static inline size_t write_ring_buffer(struct ring_buffer *rbuf, char *buf, size_t size)
+static inline size_t write_ring_buffer(struct ring_buffer *rbuf, const char *buf, size_t size)
 {
 	do_mutex_lock_acquire(&rbuf->lock);
 	int32_t len = min(ring_buffer_free(rbuf), size);

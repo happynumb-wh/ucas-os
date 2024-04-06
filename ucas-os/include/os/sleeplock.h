@@ -3,7 +3,7 @@
 
 #include <type.h>
 #include <os/spinlock.h>
-#include <os/sched.h>
+#include <os/list.h>
 // Long-term locks for processes
 typedef struct sleeplock {
   uint32_t locked;          // Is the lock held?

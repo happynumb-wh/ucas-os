@@ -68,8 +68,8 @@ typedef struct
 void sys_sleep(uint32_t time)
 {
     TimeVal tv = {.sec = time, .usec = 0};
-    if (invoke_syscall(SYSCALL_SLEEP, &tv, &tv, IGNORE, IGNORE, IGNORE)) return tv.sec;
-    return 0;
+    if (invoke_syscall(SYSCALL_SLEEP, (long)&tv, (long)&tv, IGNORE, IGNORE, IGNORE)) return;
+    return;
 }
 
 void sys_ps(void)

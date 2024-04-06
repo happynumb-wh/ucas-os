@@ -1,63 +1,8 @@
-# -----------------------------------------------------------------------
-# Project Information
-# -----------------------------------------------------------------------
+include common.mk
+# DIR
+ARCH 		   ?= riscv
 
-PROJECT_IDX	= 
-
-# -----------------------------------------------------------------------
-# Host Linux Variables
-# -----------------------------------------------------------------------
-
-SHELL       = /bin/sh
-TTYUSB1     = /dev/ttyUSB1
-DIR_OSLAB   = $(HOME)/OSLab/OSLab-RISC-V
-DIR_QEMU    = /home/wanghan/Workspace/QEMU-upgrade/upgrade-qemu/build/
-DIR_UBOOT   = $(DIR_OSLAB)/u-boot
-
-# -----------------------------------------------------------------------
-# Build and Debug Tools
-# -----------------------------------------------------------------------
-
-HOST_CC         = gcc
-CROSS_PREFIX    = riscv64-unknown-linux-gnu-
-CC              = $(CROSS_PREFIX)gcc
-AR              = $(CROSS_PREFIX)ar
-OBJDUMP         = $(CROSS_PREFIX)objdump
-GDB             = $(CROSS_PREFIX)gdb
-QEMU            = $(DIR_QEMU)qemu-system-riscv64
-UBOOT           = $(DIR_UBOOT)/u-boot
-MINICOM         = minicom
-
-# -----------------------------------------------------------------------
-# Build/Debug Flags and Variables
-# -----------------------------------------------------------------------
-
-CFLAGS          = -O2 -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 -w
-
-
-KERNEL_INCLUDE  = -I$(DIR_ARCH)/include -Iinclude -Idrivers/screen -Idrivers/sdcard/include 
-KERNEL_CFLAGS   = $(CFLAGS) $(KERNEL_INCLUDE) -Wl,--defsym=TEXT_START=$(KERNEL_ENTRYPOINT) -T riscv.lds -DDASICS_DEBUG
-# -DQEMU
-
-USER_INCLUDE    = -I$(DIR_TINYLIBC)/include
-USER_CFLAGS     = $(CFLAGS) $(USER_INCLUDE)
-USER_LDFLAGS    = -L$(DIR_BUILD) -ltinyc
-
-
-QEMU_OPTS       =  -M virt -m 256M \
-				   -nographic -kernel ./target/bbl \
-				   -drive file=./img/sd.img,if=none,format=raw,id=x0 \
-				   -device virtio-blk-device,drive=x0 \
-				   -bios none
-
-QEMU_DEBUG_OPT  = -s -S
-# QEMU_SMP_OPT	= -smp 2
-
-# -----------------------------------------------------------------------
-# UCAS-OS Entrypoints and Variables
-# -----------------------------------------------------------------------
-
-DIR_ARCH        = ./arch/riscv
+DIR_ARCH        = ./arch/$(ARCH)
 DIR_BUILD       = ./build
 DIR_DRIVERS     = ./drivers
 DIR_INIT        = ./init
@@ -65,34 +10,45 @@ DIR_KERNEL      = ./kernel
 DIR_LIBS        = ./libs
 DIR_TINYLIBC    = ./tiny_libc
 DIR_TEST        = ./test
-
-KERNEL_ENTRYPOINT       = 0xffffffc080200000
-USER_ENTRYPOINT         = 0x10000
+DIR_TOOLS		= ./tools
+DIR_SCRIPT		= ./script
 
 # -----------------------------------------------------------------------
-# UCAS-OS Kernel Source Files
+# Build/Debug Flags and Variables
 # -----------------------------------------------------------------------
 
-SRC_BOOT    = $(wildcard $(DIR_ARCH)/boot/*.S)
-SRC_ARCH    = $(wildcard $(DIR_ARCH)/kernel/*.S)
-SRC_BIOS    = $(wildcard $(DIR_ARCH)/sbi/*.c)
-SRC_DRIVER  = $(wildcard $(DIR_DRIVERS)/*/*.c)
-SRC_INIT    = $(wildcard $(DIR_INIT)/*.c)
-SRC_KERNEL  = $(wildcard $(DIR_KERNEL)/*/*.c) $(wildcard $(DIR_KERNEL)/*/*.S) $(DIR_KERNEL)/user_programs.c
-SRC_LIBS    = $(wildcard $(DIR_LIBS)/*.c)
-SRC_START   = $(wildcard $(DIR_ARCH)/kernel/*.c)
+KERNEL_INCLUDE  = -I$(DIR_ARCH)/include -Iinclude -Idrivers/screen -Idrivers/sdcard/include 
+KERNEL_CFLAGS   = $(CFLAGS) $(KERNEL_INCLUDE) -Wl,--defsym=TEXT_START=$(KERNEL_ENTRYPOINT) -T $(DIR_SCRIPT)/kernel.lds
 
-SRC_MAIN    = $(SRC_ARCH) $(SRC_INIT) $(SRC_BIOS) $(SRC_DRIVER) $(SRC_KERNEL) $(SRC_LIBS) $(SRC_START)
+USER_INCLUDE    = -I$(DIR_TINYLIBC)/include
+USER_CFLAGS     = $(CFLAGS) $(USER_INCLUDE)
+USER_LDFLAGS    = -L$(DIR_BUILD) -ltinyc
 
-ELF_MAIN    = $(DIR_BUILD)/main
+
+# -----------------------------------------------------------------------
+# UCAS-OS Kernel target
+# -----------------------------------------------------------------------
+MODULE_ARCH		= $(DIR_ARCH)/build/*.o
+MODULE_DRIVERS	= $(DIR_DRIVERS)/build/*.o
+MODULE_INIT		= $(DIR_INIT)/build/*.o
+MODULE_KERNEL	= $(DIR_KERNEL)/build/*.o
+MODULE_LIBS		= $(DIR_LIBS)/build/*.o
+
+MODULES 		= $(DIR_ARCH)/build/*.o \
+					$(DIR_DRIVERS)/build/*.o \
+					$(DIR_INIT)/build/*.o \
+					$(DIR_KERNEL)/build/*.o \
+					$(DIR_LIBS)/build/*.o
+# Final target
+ELF_KERNEL  = $(DIR_BUILD)/kernel
 ELF_IMAGE   = $(DIR_BUILD)/image
+KERNEL_BIN	= $(DIR_BUILD)/kernel.bin
 
 
 # -----------------------------------------------------------------------
 # UCAS-OS User Source Files
 # -----------------------------------------------------------------------
-
-SRC_CRT0    = $(wildcard $(DIR_ARCH)/crt0/*.S)
+SRC_CRT0    = $(wildcard $(DIR_TINYLIBC)/crt0/*.S)
 OBJ_CRT0    = $(DIR_BUILD)/$(notdir $(SRC_CRT0:.S=.o))
 
 SRC_LIBC    = $(wildcard ./tiny_libc/*.c)
@@ -103,41 +59,45 @@ SRC_SHELL	= $(DIR_TEST)/shell.c
 SRC_USER    = $(wildcard $(DIR_TEST)/*.c)
 ELF_USER    = $(patsubst %.c, %, $(foreach file, $(SRC_USER), $(DIR_BUILD)/$(notdir $(file))))
 
-USER_PROG   = $(DIR_KERNEL)/user_programs.c include/user_programs.h
+USER_PROG   = $(DIR_KERNEL)/user_programs.c
 
 # -----------------------------------------------------------------------
 # Host Linux Tools Source Files
 # -----------------------------------------------------------------------
-
-SRC_CREATEIMAGE = ./tools/createimage.c
+SRC_CREATEIMAGE = $(DIR_TOOLS)/createimage.c
 ELF_CREATEIMAGE = $(DIR_BUILD)/$(notdir $(SRC_CREATEIMAGE:.c=))
 
-SRC_ELF2CHAR = ./tools/elf2char.c
+SRC_ELF2CHAR = $(DIR_TOOLS)/elf2char.c
 ELF_ELF2CHAR = $(DIR_BUILD)/$(notdir $(SRC_ELF2CHAR:.c=))
 
-SRC_GENERATEMAPPING = ./tools/generateMapping.c
+SRC_GENERATEMAPPING = $(DIR_TOOLS)/generateMapping.c
 ELF_GENERATEMAPPING = $(DIR_BUILD)/$(notdir $(SRC_GENERATEMAPPING:.c=))
 
 # -----------------------------------------------------------------------
 # Top-level Rules
 # -----------------------------------------------------------------------
 
-all: dirs elf image asm # floppy
+all: dirs tools elf kbin asm
 
 dirs:
 	@mkdir -p $(DIR_BUILD)
 
 clean:
 	rm -rf $(DIR_BUILD)
-	rm kernel/user_programs.c 
+	$(MAKE) -C $(DIR_ARCH) clean
+	$(MAKE) -C $(DIR_DRIVERS) clean
+	$(MAKE) -C $(DIR_INIT) clean
+	$(MAKE) -C $(DIR_KERNEL) clean
+	$(MAKE) -C $(DIR_LIBS) clean
+	rm kernel/user_programs.c
 	rm include/user_programs.h
 
-asm:  $(ELF_MAIN) $(ELF_USER) #$(ELF_BOOT)
+asm:  $(ELF_KERNEL) $(ELF_USER) #$(ELF_BOOT)
 	@for elffile in $^; do $(OBJDUMP) -d $$elffile > $(notdir $$elffile).txt; done
 	
-
+	
 gdb:
-	$(GDB) $(ELF_MAIN) -ex "target remote:1234" -x .gdbinit
+	$(GDB) $(ELF_KERNEL) -ex "target remote:1234" -x .gdbinit
 
 run:
 	$(QEMU) $(QEMU_OPTS)
@@ -155,13 +115,13 @@ debug-smp:
 minicom:
 	sudo $(MINICOM) -D $(TTYUSB1)
 
-.PHONY: all dirs clean asm gdb run debug minicom $(USER_PROG)
+.PHONY: dirs clean asm gdb run debug minicom
+
 
 # -----------------------------------------------------------------------
 # UCAS-OS Rules
 # -----------------------------------------------------------------------
-
-$(USER_PROG): $(ELF_USER) ${ELF_ELF2CHAR} ${ELF_GENERATEMAPPING}
+$(USER_PROG): $(ELF_USER) $(ELF_ELF2CHAR) $(ELF_GENERATEMAPPING)
 	if [ -e kernel/user/user_programs.c ]; then rm kernel/user/user_programs.c include/user_programs.h;fi
 	echo "" > user_programs.c
 	echo "" > user_programs.h
@@ -177,37 +137,56 @@ $(USER_PROG): $(ELF_USER) ${ELF_ELF2CHAR} ${ELF_GENERATEMAPPING}
 	mv user_programs.h include/
 	mv user_programs.c kernel/
 
+$(MODULE_ARCH):
+	$(MAKE) -C $(DIR_ARCH)
 
-$(ELF_MAIN): $(SRC_MAIN) riscv.lds 
-	$(CC) $(KERNEL_CFLAGS) -o $@ $(SRC_MAIN) -e _boot
+$(MODULE_DRIVERS):
+	$(MAKE) -C $(DIR_DRIVERS)
+
+$(MODULE_INIT):
+	$(MAKE) -C $(DIR_INIT)
+
+$(MODULE_KERNEL): $(USER_PROG)
+	$(MAKE) -C $(DIR_KERNEL)
+
+$(MODULE_LIBS):
+	$(MAKE) -C $(DIR_LIBS)
+
+$(ELF_KERNEL): $(MODULES)
+	@echo LD + $@
+	@$(CC) $(KERNEL_CFLAGS) -o $@ $(MODULES) 
 
 $(OBJ_CRT0): $(SRC_CRT0)
+	@echo CC + $<
 	@$(CC) $(USER_CFLAGS) -I$(DIR_ARCH)/include -c $< -o $@
 
 $(LIB_TINYC): $(OBJ_LIBC)
-	$(AR) rcs $@ $^
+	@echo AR + $@
+	@$(AR) rcs $@ $^
 
 $(DIR_BUILD)/%.o: $(DIR_TINYLIBC)/%.c
+	@echo CC +  $<
 	@$(CC) $(USER_CFLAGS) -c $< -o $@
 
 
-$(DIR_BUILD)/%: $(DIR_TEST)/%.c $(OBJ_CRT0) $(LIB_TINYC) riscv.lds
-	$(CC) $(USER_CFLAGS) -o $@ $(OBJ_CRT0) $< $(USER_LDFLAGS) -Wl,--defsym=TEXT_START=$(USER_ENTRYPOINT) -T riscv.lds
+$(DIR_BUILD)/%: $(DIR_TEST)/%.c $(OBJ_CRT0) $(LIB_TINYC)
+	@echo CC + $<
+	@$(CC) $(USER_CFLAGS) -o $@ $(OBJ_CRT0) $< $(USER_LDFLAGS) -Wl,--defsym=TEXT_START=$(USER_ENTRYPOINT) -T $(DIR_SCRIPT)/user.lds
 
-elf: $(ELF_MAIN) $(LIB_TINYC) $(ELF_USER) #$(ELF_BOOT)
+elf: $(ELF_KERNEL) $(LIB_TINYC) $(ELF_USER)
 
-.PHONY: elf
+$(KERNEL_BIN): $(ELF_KERNEL)
+	@echo OBJCPY + $<
+	@$(OBJCOPY) $(OBJCOPY_FLAGS) $< $@ 
 
-# -----------------------------------------------------------------------
-# Host Linux Rules
-# -----------------------------------------------------------------------
+# image: $(ELF_IMAGE)
+kbin: $(KERNEL_BIN)
 
 
 $(ELF_ELF2CHAR): $(SRC_ELF2CHAR)
-	$(HOST_CC) $(SRC_ELF2CHAR) -o $@ -ggdb -Wall
+	@echo HOST_CC + $<
+	@$(HOST_CC) $(SRC_ELF2CHAR) -o $@ -ggdb -Wall
 
 $(ELF_GENERATEMAPPING): $(SRC_GENERATEMAPPING)
-	$(HOST_CC) $(SRC_GENERATEMAPPING) -o $@ -ggdb -Wall
-
-
-.PHONY: image
+	@echo HOST_CC + $<
+	@$(HOST_CC) $(SRC_GENERATEMAPPING) -o $@ -ggdb -Wall

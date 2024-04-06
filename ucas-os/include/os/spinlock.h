@@ -13,8 +13,8 @@ typedef enum {
     LOCKED,    
 } spinlock_status_t;
 
-#define spinlock_init(name) struct spinlock name = {UNLOCKED, NULL};
-#define initlock(name) {(name)->status = UNLOCKED; (name)->cpu = NULL;}
+#define spinlock_init(name) struct spinlock name = {UNLOCKED, 0};
+#define initlock(name) {(name)->status = UNLOCKED; (name)->cpu = 0;}
 #define release(name) ((name)->status = UNLOCKED);
 
 

@@ -1,6 +1,11 @@
 #include <os/elf.h>
 #include <os/mm.h>
+#include <os/sched.h>
+#include <stdio.h>
+#include <compile.h>
 #include <user_programs.h>
+
+
 
 char * dll_linker = "/lib/ld-linux-riscv64-lp64d.so.1";
 // load the connect into the memory
@@ -43,15 +48,15 @@ for_page_remain: ;
                     // if (!(exe_load->phdr[index].p_flags & PF_W) && !exe_load->dynamic)
                     // {
                     //     alloc_page_point_phyc(v_base, pgdir, buffer_begin, MAP_USER);
-                    //     bytes_of_page = (uchar *)buffer_begin;
+                    //     bytes_of_page = (char *)buffer_begin;
                     // } else 
                     // {
                         // this will never happen for the first phdr
                         // else alloc and copy
-                        bytes_of_page = alloc_page_helper(v_base, pgdir, MAP_USER, page_flag);
+                        bytes_of_page = (void *)alloc_page_helper(v_base, pgdir, MAP_USER, page_flag);
                         memcpy(
                             bytes_of_page,
-                            buffer_begin,
+                            (void *)buffer_begin,
                             MIN(exe_load->phdr[index].p_filesz - i, NORMAL_PAGE_SIZE));
                     // }
                 } else 
@@ -61,7 +66,7 @@ for_page_remain: ;
                     // memcpy
                     memcpy(
                         bytes_of_page,
-                        buffer_begin,
+                        (void *)buffer_begin,
                         MIN(exe_load->phdr[index].p_filesz - i, page_remain)
                         );                    
                     // if (exe_load->phdr[index].p_filesz - i <  page_remain) {
@@ -89,8 +94,8 @@ for_page_remain: ;
             } else 
             {
                 // we can make sure it will be the data for .bss
-                long *bytes_of_page =
-                    (long *)alloc_page_helper(
+                // long *bytes_of_page =
+                    alloc_page_helper(
                                   (uintptr_t)(v_base), 
                                                 pgdir,
                                              MAP_USER,
@@ -121,29 +126,20 @@ extern uintptr_t load_connnetor_fix(const char * filename, uintptr_t pgdir)
     Elf64_Phdr *phdr = NULL;
     Elf64_Ehdr *ehdr = NULL;     
 
-    unsigned char *ptr_ph_table = NULL;
-    unsigned char *ptr_sh_table = NULL;    
+    Elf64_Phdr *ptr_ph_table = NULL;
     Elf64_Half ph_entry_count;
-    Elf64_Half ph_entry_size;
-    Elf64_Half sh_entry_count;
-    Elf64_Half sh_entry_size;
     int i;
 
     ehdr = (Elf64_Ehdr *)elf_binary;     
 
     // check whether `binary` is a ELF file.
-    if (length < 4 || !is_elf_format(elf_binary)) {
+    if (length < 4 || !is_elf_format((uchar *)elf_binary)) {
         return 0;  // return NULL when error!
     }
 
-    ptr_ph_table   = elf_binary + ehdr->e_phoff;
-    ptr_sh_table   = elf_binary + ehdr->e_shoff;
+    ptr_ph_table   = (Elf64_Phdr *)(elf_binary + ehdr->e_phoff);
     ph_entry_count = ehdr->e_phnum;
-    ph_entry_size  = ehdr->e_phentsize;
-    sh_entry_count = ehdr->e_shnum;
-    sh_entry_size  = ehdr->e_shentsize;
 
-    int is_first = 1; 
     // load elf
     // debug_print_ehdr(*ehdr);
     while (ph_entry_count--) {
@@ -224,7 +220,7 @@ page_remain_qemu: ;
             }
         }
 
-        ptr_ph_table += ph_entry_size;
+        ptr_ph_table ++;
     }    
 
     return DYNAMIC_VADDR_PFFSET + ehdr->e_entry;

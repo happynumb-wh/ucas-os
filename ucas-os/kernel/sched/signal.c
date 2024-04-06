@@ -91,7 +91,7 @@ int do_rt_sigaction(int32_t signum, struct sigaction *act,
     
     if (signum > NUM_SIG){
         printk("process %d: cannot set signum %d, too large\n", current_running->pid, signum);
-        return;
+        return 1;
     }
     sigaction_t *this_sigaction = &current_running->sigactions[signum - 1];
     if (oldact) memcpy(oldact, this_sigaction, sizeof(sigaction_t));
@@ -109,7 +109,7 @@ void do_rt_sigreturn()
 {
     
     // u_cxt
-    ucontext_t *u_cxt = (ucontext_t *)(SIGNAL_HANDLER_ADDR - sizeof(ucontext_t));
+    ucontext_t __maybe_unused *u_cxt = (ucontext_t *)(SIGNAL_HANDLER_ADDR - sizeof(ucontext_t));
     // recover form the user cancel
     change_signal_mask(current_running, current_running->prev_mask);
     // finished one signal
@@ -119,8 +119,8 @@ void do_rt_sigreturn()
     // resize kernel_sp
     uint64_t core_id = current_running->core_id;
     current_running->kernel_sp += offset;
-    current_running->save_context = (uint64_t)(current_running->save_context) + offset;
-    current_running->switch_context = (uint64_t)(current_running->switch_context) + offset;
+    current_running->save_context = (regs_context_t *)(current_running->save_context) + offset;
+    current_running->switch_context = (switchto_context_t *)(current_running->switch_context) + offset;
     current_running->core_id = core_id;    
     // jump to next
     // current_running->save_context->sepc = current_running->save_context->sepc;
@@ -253,15 +253,15 @@ void handle_signal()
                 signal_context_buf.ra  = (reg_t)(USER_STACK_ADDR - SIZE_RESTORE);                         /* should do sigreturn when handler return */
                                                                                                                
                 // signal_context_buf.regs[2]  = new_sp;
-                signal_context_buf.sepc = current_running->sigactions[i].handler;                              /* sepc = entry */
+                signal_context_buf.sepc = (reg_t)current_running->sigactions[i].handler;                              /* sepc = entry */
                 // for switch
                 uint64_t offset = (sizeof(regs_context_t) + sizeof(switchto_context_t));
                 // new kernel_stack 
                 signal_switch_buf.ra = pcb->kernel_sp - offset;
                 // another one sp
                 current_running->kernel_sp -= offset;
-                current_running->save_context = (uint64_t)(current_running->save_context) - offset;
-                current_running->switch_context = (uint64_t)(current_running->switch_context) - offset;
+                current_running->save_context = (regs_context_t *)(current_running->save_context) - offset;
+                current_running->switch_context = (switchto_context_t *)(current_running->switch_context) - offset;
                 set_signal_trampoline(&signal_context_buf, &signal_switch_buf);
 
             }
@@ -395,7 +395,7 @@ uintptr_t set_ucontext()
     // all reserve
     // set value
     memset(u_cxt, 0, sizeof(ucontext_t));
-    u_cxt->uc_link = trap_sp - sizeof(ucontext_t);
+    u_cxt->uc_link = (ucontext_t *)(trap_sp - sizeof(ucontext_t));
     u_cxt->uc_sigmask.__bits[0] = current_running->sig_mask;
     // // copy switch context, reserve temporarily
     u_cxt->uc_mcontext.__gregs[0] = current_running->save_context->sepc;
@@ -423,7 +423,7 @@ sigaction_t *alloc_sig_table(){
     }
     printk("sig_table is full\n");
     assert(0);
-    return -1;
+    return NULL;
 }
 
 void free_sig_table(sigaction_t* sig_in){

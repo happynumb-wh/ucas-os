@@ -2,11 +2,11 @@
 
 #include "type.h"
 #include "include/fpioa.h"
-#include "include/riscv.h"
 #include "os/string.h"
 //#include "os/ioremap.h"
 //#include "qemu.h"
 #include "stdio.h"
+#include <riscv.h>
 
 // #include "include/defs.h"
 /* Copyright 2018 Canaan Inc.

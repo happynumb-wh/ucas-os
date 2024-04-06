@@ -62,7 +62,7 @@ typedef struct mutex_lock
 #define mutex_init(lock) struct mutex_lock lock = \
                             {  .pid = 0,\
                                .status = UNLOCKED,\
-                               .block_queue = {&(lock.block_queue), &(lock.block_queue)} \ 
+                               .block_queue = {&(lock.block_queue), &(lock.block_queue)} \
                             }
                          
 

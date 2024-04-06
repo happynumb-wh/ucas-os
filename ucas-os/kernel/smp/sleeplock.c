@@ -1,6 +1,8 @@
 #include <os/sleeplock.h>
 #include <os/list.h>
+#include <os/sched.h>
 #include <assert.h>
+
 
 // void 
 // initsleeplist(sleeplist_t *sleep_queue)

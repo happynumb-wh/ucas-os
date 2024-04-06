@@ -99,9 +99,6 @@ typedef struct {
 #ifndef ELF_OSABI
 #define ELF_OSABI ELFOSABI_NONE
 #endif
-// map
-#define MAP_KERNEL 1
-#define MAP_USER 2
 
 #define EI_NIDENT 16
 typedef struct elf64_hdr
@@ -282,11 +279,9 @@ typedef struct pcb pcb_t;
 
 /* prepare_page_for_kva should return a kernel virtual address */
 extern uintptr_t load_elf(
-    ElfFile *elf, uintptr_t pgdir, uint64_t *mem_alloc, pcb_t *initpcb , int *dynamic,
-    uintptr_t (*prepare_page_for_va)(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag));
+    ElfFile *elf, uintptr_t pgdir, uint64_t *mem_alloc, pcb_t *initpcb , int *dynamic);
 
-extern uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, int *dynamic, pcb_t *initpcb ,
-    uintptr_t (*prepare_page_for_va)(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag));
+extern uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, int *dynamic, pcb_t *initpcb);
 
 
 extern uintptr_t fast_load_elf(const char * filename, uintptr_t pgdir, uint64_t *file_length, pcb_t *initpcb);

@@ -255,4 +255,5 @@ int prints(const char *fmt, ...)
 
 int slog(const char *a){
     sbi_console_putstr(a);
+    return 0;
 }

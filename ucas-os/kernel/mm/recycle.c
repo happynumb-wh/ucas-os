@@ -10,7 +10,7 @@
 /* recycle */
 int recycle_page_default(uintptr_t pgdir){
     int recyclePageNum = 0;
-    PTE *kernelBase = (PTE *)pa2kva(PGDIR_PA);
+    PTE *kernelBase = (PTE *)PGDIR_PA;
     PTE *recycleBase = (PTE *)pgdir;
     for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
     {
@@ -38,11 +38,6 @@ int recycle_page_default(uintptr_t pgdir){
         recyclePageNum++;
     }
     /* change the pgdir to kernel */
-    // if (current_running->pgdir == pgdir)
-    // {
-    //     set_satp(SATP_MODE_SV39, 0, PGDIR_PA >> NORMAL_PAGE_SHIFT);
-    //     local_flush_tlb_all();        
-    // }
     freePage((uintptr_t)recycleBase);
     recyclePageNum++;
     return recyclePageNum;
@@ -51,7 +46,7 @@ int recycle_page_default(uintptr_t pgdir){
 /* recycle */
 int recycle_page_voilent(uintptr_t pgdir){
     int recyclePageNum = 0;
-    PTE *kernelBase = (PTE *)pa2kva(PGDIR_PA);
+    PTE *kernelBase = (PTE *)PGDIR_PA;
     PTE *recycleBase = (PTE *)pgdir;
     for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
     {
@@ -97,10 +92,10 @@ int recycle_page_part(uintptr_t pgdir, void *exe_load)
     // assert(exe_load != NULL);
     // excellent_load_t* recycle_load = (excellent_load_t *)exe_load;
     // int recyclePageNum = 0;
-    // PTE *kernelBase = (PTE *)pa2kva(PGDIR_PA);
+    // PTE *kernelBase = (PTE *)PGDIR_PA;
     // PTE *recycleBase = (PTE *)pgdir;
     // uintptr_t keep_vaddr_base = recycle_load->phdr[0].p_vaddr;
-    // uintptr_t keep_vaddr_top = recycle_load->phdr[0].p_vaddr + \
+    // uintptr_t keep_vaddr_top = recycle_load->phdr[0].p_vaddr + 
     //                                 recycle_load->phdr[0].p_memsz;
     // uintptr_t keep_dy_vaddr_base;
     // uintptr_t keep_dy_vaddr_top;
@@ -111,7 +106,7 @@ int recycle_page_part(uintptr_t pgdir, void *exe_load)
     //     assert(id != -1);
     //     excellent_load_t* dynamic_load = &pre_elf[id];
     //     keep_dy_vaddr_base = dynamic_load->phdr[0].p_vaddr + DYNAMIC_VADDR_PFFSET;
-    //     keep_dy_vaddr_top = dynamic_load->phdr[0].p_vaddr + \
+    //     keep_dy_vaddr_top = dynamic_load->phdr[0].p_vaddr + 
     //                         dynamic_load->phdr[0].p_memsz + DYNAMIC_VADDR_PFFSET;        
     // }
     // for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
@@ -176,10 +171,11 @@ int recycle_page_part(uintptr_t pgdir, void *exe_load)
     
     // // if (current_running->pgdir == pgdir)
     // // {
-    // //     set_satp(SATP_MODE_SV39, 0, PGDIR_PA >> NORMAL_PAGE_SHIFT);
+    // //     set_satp(SATP_MODE_SV39, 0, kva2pa(PGDIR_PA) >> NORMAL_PAGE_SHIFT);
     // //     local_flush_tlb_all();        
     // // }
     // freePage((uintptr_t)recycleBase);
     // recyclePageNum++;
     // return recyclePageNum;
+    return 0;
 }

@@ -29,7 +29,9 @@
 #define INCLUDE_TIME_H_
 
 #include <type.h>
+#include <compile.h>
 #include <os/list.h>
+
 #define MICRO 6
 #define NANO 9
 
@@ -43,9 +45,8 @@
 typedef void (*TimerCallFunc)(void *parameter);
 static LIST_HEAD(timer_master);
 static LIST_HEAD(timer_slave);
-static uint64_t sys_time_master = 0;
-static uint64_t sys_time_slave = 0;
-
+extern clock_t sys_time_master;
+extern clock_t sys_time_slave;
 
 /* for gettimes */
 typedef struct tms              
@@ -98,8 +99,8 @@ extern void update_stime();
 /* utlis.c */
 void ticks_to_timespec(time_t time, timespec_t *ts);
 void ticks_to_timeval(time_t time, timeval_t *tms);
-uint64_t timespec_to_ticks(timespec_t *ts);
-uint64_t timeval_to_ticks(timeval_t *tms);
+uint64_t timespec_to_ticks(const timespec_t *ts);
+uint64_t timeval_to_ticks(const timeval_t *tms);
 
 
 extern uint64_t get_time_base();

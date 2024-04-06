@@ -7,17 +7,19 @@
 //
 
 
-#include "type.h"
-#include "riscv.h"
-#include "stdio.h"
 #include "param.h"
 #include "memlayout.h"
 #include "buf.h"
 #include "virtio.h"
-#include "assert.h"
-#include "pgtable.h"
-#include "os/string.h"
+#include <type.h>
+#include <stdio.h>
+#include <assert.h>
+#include <pgtable.h>
+#include <riscv.h>
+#include <os/string.h>
 #include <os/sleeplock.h>
+#include <os/sched.h>
+
 
 // the address of virtio mmio register r.
 #define R(r) ((volatile uint32 *)(VIRTIO0_V + (r)))
@@ -144,7 +146,7 @@ free_desc(int i)
     panic("virtio_disk_intr 2");
   disk.desc[i].addr = 0;
   disk.free[i] = 1;
-  wakeup(&disk.free[0]);
+  wakeup((sleeplist_t *)&disk.free[0]);
 }
 
 // free a chain of descriptors.

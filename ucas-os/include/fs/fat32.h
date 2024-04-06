@@ -83,8 +83,12 @@
 #define ATTR_ARCHIVE        0x20
 #define ATTR_LONG_NAME      0x0F
 
+#ifndef max
 #define max(x,y) (((x) > (y)) ? (x) : (y))
-#define min(x,y) (((x) > (y)) ? (y) : (x))
+#endif
+#ifndef min
+#define min(x,y) ((x)<(y) ? (x) : (y))
+#endif
 
 #define SECTOR_SIZE (fat.bpb.byts_per_sec)
 #define CLUSTER_SIZE (fat.byts_per_clus)
@@ -138,7 +142,6 @@ typedef uint32_t isec_t;
 
 #define SHORT_FILENAME    8
 #define SHORT_EXTNAME     3
-#pragma pack(1)
 typedef struct short_name_entry{
     char        dename[SHORT_FILENAME];
     char        extname[SHORT_EXTNAME];
@@ -154,7 +157,6 @@ typedef struct short_name_entry{
     uint16_t    low_start_clus;
     uint32_t    file_size;
 }short_name_entry_t;
-#pragma pack()
 typedef short_name_entry_t dentry_t;
 
 
@@ -162,7 +164,6 @@ typedef short_name_entry_t dentry_t;
 #define LONG_FILENAME2 6
 #define LONG_FILENAME3 2
 #define LONG_FILENAME (LONG_FILENAME1 + LONG_FILENAME2 + LONG_FILENAME3)
-#pragma pack(1)
 typedef struct long_name_entry
 {
     uint8_t seq;
@@ -176,7 +177,6 @@ typedef struct long_name_entry
 }long_name_entry_t;
 
 extern fat_t fat;
-#pragma pack()
 struct stat {
     dev_t     st_dev;         /* ID of device containing file */
     ino_t     st_ino;         /* inode number */
@@ -292,13 +292,13 @@ extern uint8 dentry_is_empty(dentry_t *p);
 extern dentry_t* next_entry(dentry_t *p, char* buff, uint32_t* now_clus, uint32_t* now_sector);
 extern char unicode2char(uint16_t unich);
 extern uint16_t char2unicode(char ch);
-extern dentry_t* search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t mode, struct dir_pos *pos);
-extern uint8_t filenamecmp(char *name1, char *name2);
-extern inode_t find_dir(inode_t cur_cwd, char *name);
-extern dentry_t* create_new(char *name, uint32_t cluser_num, uchar *buf, type_t type, struct dir_pos *pos);
-extern dentry_t* find_entry_entry(uint32_t dir_first_clus, uchar *buf, uint32_t num, uint32_t *sec);
+extern dentry_t* search(const char *name, uint32_t dir_first_clus, char *buf, type_t mode, struct dir_pos *pos);
+extern uint8_t filenamecmp(const char *name1, const char *name2);
+extern inode_t find_dir(inode_t cur_cwd, const char *name);
+extern dentry_t* create_new(char *name, uint32_t cluser_num, char *buf, type_t type, struct dir_pos *pos);
+extern dentry_t* find_entry_entry(uint32_t dir_first_clus, char *buf, uint32_t num, uint32_t *sec);
 extern uint32_t find_entry_clus(char *buf);
-dentry_t *search2(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t mode, struct dir_pos *pos);
+dentry_t *search2(const char *name, uint32_t dir_first_clus, char *buf, type_t mode, struct dir_pos *pos);
 int set_fd(void *pcb, uint i, dentry_t *p, uint32_t flags);
 
 static inline void set_cluster_for_dentry(dentry_t *p, uint32_t clus)
@@ -316,7 +316,7 @@ static inline uint32 get_length_from_dentry(dentry_t *p)
 
 extern fat_t fat;
 extern inode_t cwd, root;
-static char cwd_path[FAT32_MAX_PATH] = {0};
+extern char cwd_path[FAT32_MAX_PATH];
 
 int fat32_init();
 long fat32_getcwd(char *buf, size_t size);
@@ -333,16 +333,16 @@ int fat32_link();
 int fat32_unlink(int dirfd, const char* path, uint32_t flags);
 
 /* fat32 open close */
-int fat32_openat(fd_num_t fd, const uchar *path, uint32 flags, uint32 mode);
+int fat32_openat(fd_num_t fd, const char *path, uint32 flags, uint32 mode);
 int64 fat32_close(fd_num_t fd);
 
 /* fat32 read write */
-int64 fat32_read(fd_num_t fd, uchar *buf, size_t count);
-int64 fat32_write(fd_num_t fd, uchar *buf, uint64_t count);
-int64 fat32_read_uncached(fd_num_t fd, uchar *buf, size_t count);
+int64 fat32_read(fd_num_t fd, char *buf, size_t count);
+int64 fat32_write(fd_num_t fd,const char *buf, uint64_t count);
+int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count);
 /* lseek */
 int64 fat32_lseek(fd_num_t fd, size_t off, uint32_t whence);
-int64 fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off);
+uint64_t fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off);
 int64 fat32_munmap(void *start, size_t len);
 
 // final competition
@@ -361,7 +361,7 @@ struct statfs {
     long f_namelen; /* 文件名的最大长度 */
 };
 
-int32_t fat32_fcntl(fd_num_t fd, int32_t cmd, int32_t arg);
+int64_t fat32_fcntl(fd_num_t fd, int32_t cmd, uint64_t arg);
 int64 fat32_readv(fd_num_t fd, struct iovec *iov, int iovcnt);
 int64 fat32_writev(fd_num_t fd, struct iovec *iov, int iovcnt);
 ssize_t fat32_pread(int fd, void * buf, size_t count, off_t offset);

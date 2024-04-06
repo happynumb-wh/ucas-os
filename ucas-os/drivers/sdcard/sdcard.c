@@ -5,9 +5,12 @@
 #include "os/string.h"
 #include "include/sdcard.h"
 #include "include/spi.h"
-#include "include/riscv.h"
 #include "include/gpiohs.h"
 #include <os/sleeplock.h>
+#include <os/sched.h>
+#include <riscv.h>
+#include <compile.h>
+
 sleeplock_t sdcard_lock;
 // uint64_t r_w_times = 0;
 //#include <pgtable.h>
@@ -45,7 +48,6 @@ sleeplock_t sdcard_lock;
 SD_CardInfo cardinfo = {0};
 
 void sdcard_init() {
-	static int32_t cnt = 0;
 	uint8_t cardinfo = sd_init();
 	initsleeplock(&sdcard_lock);
     if(cardinfo) {
@@ -83,14 +85,24 @@ static void sd_write_data(uint8_t *data_buff, uint32_t length)
 {
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
     //spi_send_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_3, NULL, 0, data_buff, length);
-	spi_send_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_0, NULL, 0, get_kva_of(data_buff, current_running->pgdir), length);
+	spi_send_data_standard(SPI_DEVICE_0, \
+							SPI_CHIP_SELECT_0, \
+							NULL,\
+							0, \
+							(uint8_t *)get_kva_of((uintptr_t)data_buff, current_running->pgdir), \
+							length);
 }
 
 static void sd_read_data(uint8_t *data_buff, uint32_t length)
 {
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
     //spi_send_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_3, NULL, 0, data_buff, length); 
-    spi_receive_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_0, NULL, 0, get_kva_of(data_buff, current_running->pgdir), length);
+    spi_receive_data_standard(SPI_DEVICE_0, \
+								SPI_CHIP_SELECT_0, \
+								NULL, \
+								0, \
+								(uint8_t *)get_kva_of((uintptr_t)data_buff, current_running->pgdir), \
+								length);
 }
 
 
@@ -170,7 +182,7 @@ static void sd_end_cmd(void)
  *         - status 110: Data rejected due to a Write error.
  *         - status 111: Data rejected due to other error.
  */
-static uint8_t sd_get_dataresponse(void)
+static __maybe_unused uint8_t  sd_get_dataresponse(void) 
 {
 	uint8_t response;
 	/*!< Read resonse */
@@ -508,7 +520,7 @@ uint8_t sd_init(void)
  *         - 0xFF: Sequence failed
  *         - 0: Sequence succeed
  */
-uint8_t sd_read_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
+uint8_t sd_read_sector(void *data_buff, uint32_t sector, uint32_t count)
 {
 #ifdef k210
 	uint8_t frame[2], flag;
@@ -547,7 +559,7 @@ uint8_t sd_read_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
 	/*!< Returns the reponse */
 	return count > 0 ? 0xFF : 0;
 #else
-	memcpy(data_buff, QEMU_DISK_OFFSET + (sector << 9), count*512);
+	memcpy(data_buff, (void *)(QEMU_DISK_OFFSET + (sector << 9)), count*512);
 	return 0;
 #endif
 }
@@ -593,7 +605,7 @@ uint8_t sd_read_sector_bio(struct buf *a, uint32_t count)
 #else 
 	while (count-->0) {
 		// printk("[disk_read_bio] try to read from 0x%lx\n",QEMU_DISK_OFFSET + (a->sectorno << 9));
-		memcpy(a->data,QEMU_DISK_OFFSET + (a->sectorno << 9),512);
+		memcpy(a->data, (void *)(QEMU_DISK_OFFSET + (a->sectorno << 9)),512);
 		a++;
 	}
 	return 0;
@@ -608,7 +620,7 @@ uint8_t sd_read_sector_bio(struct buf *a, uint32_t count)
  *         - 0xFF: Sequence failed
  *         - 0: Sequence succeed
  */
-uint8_t sd_write_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
+uint8_t sd_write_sector(void *data_buff, uint32_t sector, uint32_t count)
 {
 #ifdef k210
 	uint8_t frame[2] = {0xFF};
@@ -648,7 +660,7 @@ uint8_t sd_write_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
 	/*!< Returns the reponse */
 	return 0;
 #else
-	memcpy(QEMU_DISK_OFFSET + (sector << 9), data_buff, count*512);
+	memcpy((void *)(QEMU_DISK_OFFSET + (sector << 9)), data_buff, count*512);
 	return 0;
 #endif
 }
@@ -696,7 +708,7 @@ uint8_t sd_write_sector_bio(struct buf *a, uint32_t count)
 #else
 	while (count-->0) {
 		// printk("[disk_write_bio] try to write to 0x%lx\n",QEMU_DISK_OFFSET + (a->sectorno << 9));
-		memcpy(QEMU_DISK_OFFSET + (a->sectorno << 9), a->data, 512);
+		memcpy((void *)(QEMU_DISK_OFFSET + (a->sectorno << 9)), a->data, 512);
 		a++;
 	}
 	return 0;

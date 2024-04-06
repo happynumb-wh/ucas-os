@@ -46,7 +46,6 @@ uint32_t init_mem(){
 // alloc one page, return the top of the page
 ptr_t allocPage() 
 {
-    // TODO:
     list_head *freePageList = &freePageManager.free_source_list;
     
 try:    if (!list_empty(freePageList)){
@@ -136,7 +135,6 @@ extern void kfree_voilence(void * size)
 /* this is used for mapping kernel virtual address into user page table */
 void share_pgtable(uintptr_t dest_pgdir, uintptr_t src_pgdir)
 {
-    // TODO:
     memcpy((char *)dest_pgdir, (char *)src_pgdir, PAGE_SIZE);
 }
 
@@ -188,9 +186,8 @@ void share_sub(uint64_t baseAddr){
 /* allocate physical page for `va`, mapping it into `pgdir`,
    return the kernel virtual address for the page.
    */
-uintptr_t alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag)
+void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag)
 {
-    // TODO:
     uint64_t vpn[] = {
                       (va >> 12) & ~(~0 << 9), //vpn0
                       (va >> 21) & ~(~0 << 9), //vpn1
@@ -217,7 +214,7 @@ uintptr_t alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
                           _PAGE_USER);
     /* final page */
-    return check_page_set_flag(third_page, vpn[0], pte_flags) | (va & (uint64_t)0x0fff);
+    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags) | (va & (uint64_t)0x0fff));
 
 }
 
@@ -312,8 +309,6 @@ uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode){
     PTE *second_page = NULL;
     /* finally page */
     PTE *third_page = NULL; 
-    /* physic page */
-    PTE *physic_page = NULL;
     if (((page_base[vpn[2]]) & _PAGE_PRESENT)!=0)
     {
         second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
@@ -341,7 +336,6 @@ uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode){
 
 uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir)
 {
-    // TODO:
     
     uint64_t vpn[] = {
                       (va >> 12) & ~(~0 << 9), //vpn0
@@ -355,11 +349,11 @@ uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir)
     /* finally page */
     PTE *third_page = NULL;
     /* find the second page */
-    if(page_base[vpn[2]] & _PAGE_PRESENT == 0){
+    if((page_base[vpn[2]] & _PAGE_PRESENT) == 0){
         return -1;
     }
     second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
-    if(second_page[vpn[1]] & _PAGE_PRESENT == 0){
+    if((second_page[vpn[1]] & _PAGE_PRESENT) == 0){
         return -1;
     }
     /* third page */

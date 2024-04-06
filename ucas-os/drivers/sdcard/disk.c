@@ -1,12 +1,13 @@
 #include "type.h"
 #include "param.h"
 //#include "memlayout.h"
-#include "riscv.h"
 #include "buf.h"
 #include "sdcard.h"
 #include "virtio.h"
 #include <pgtable.h>
 #include <os/sched.h>
+#include <riscv.h>
+
 
 void disk_init(void)
 {
@@ -15,7 +16,7 @@ void disk_init(void)
     #endif
 }
 
-uint8_t disk_read(uint8_t *data_buff, uint32_t sector, uint32_t count)
+uint8_t disk_read(void *data_buff, uint32_t sector, uint32_t count)
 {
         // printk("disk read begin\n");
         for (int i = 0; i < count; i++)
@@ -33,7 +34,7 @@ uint8_t disk_read(uint8_t *data_buff, uint32_t sector, uint32_t count)
         // return sd_read_sector(data_buff, sector, count);
 }
 
-uint8_t disk_write(uint8_t *data_buff, uint32_t sector, uint32_t count)
+uint8_t disk_write(void *data_buff, uint32_t sector, uint32_t count)
 {
         // printk("disk write begin\n");
         for (int i = 0; i < count; i++)

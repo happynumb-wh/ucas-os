@@ -1,12 +1,12 @@
 // SPI Protocol Implementation
 
-#include "type.h"
 #include "include/spi.h"
 #include "include/platform.h"
-#include "include/riscv.h"
 #include "include/utils.h"
-#include "os/string.h"
-#include "os/mm.h"
+#include <os/string.h>
+#include <os/mm.h>
+#include <type.h>
+#include <riscv.h>
 // #include "include/defs.h"
 
 volatile spi_t *const spi[4] =
@@ -198,15 +198,14 @@ void spi_send_data_standard(spi_device_num_t spi_num, spi_chip_select_t chip_sel
 {
     // configASSERT(spi_num < SPI_DEVICE_MAX && spi_num != 2);
     // uint8_t *v_buf = malloc(cmd_len + tx_len);
-    uint8_t *v_buf = allocPage() - PAGE_SIZE;
+    uint8_t *v_buf = kmalloc(PAGE_SIZE);
     uint64_t i;
     for(i = 0; i < cmd_len; i++)
         v_buf[i] = cmd_buff[i];
     for(i = 0; i < tx_len; i++)
         v_buf[cmd_len + i] = tx_buff[i];
     spi_send_data_normal(spi_num, chip_select, v_buf, cmd_len + tx_len);
-    // free((void *)v_buf);
-    freePage((void *)v_buf);
+    kfree(v_buf);
 }
 
 void spi_receive_data_standard(spi_device_num_t spi_num, spi_chip_select_t chip_select, const uint8_t *cmd_buff,

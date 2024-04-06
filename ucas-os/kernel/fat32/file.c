@@ -132,7 +132,7 @@ fd_t *alloc_fd_table(){
     }
     printk("fd_table is full\n");
     assert(0);
-    return -1;
+    return NULL;
 }
 
 void free_fd_table(fd_t* pfd_in){

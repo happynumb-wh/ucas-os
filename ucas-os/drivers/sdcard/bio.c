@@ -13,17 +13,21 @@
 // * Only one process at a time can use a buffer,
 //     so do not keep them longer than necessary.
 
-#include "type.h"
-#include "stdio.h"
-#include "os/list.h"
+
 #include "include/param.h"
 #include "include/buf.h"
-#include "include/sdcard.h"
-#include "include/riscv.h"
 #include "include/sdcard.h"
 //#include "include/debug.h"
 //#include "sched/proc.h"
 #include <os/sleeplock.h>
+#include <pgtable.h>
+#include <riscv.h>
+#include <compile.h>
+#include <type.h>
+#include <stdio.h>
+#include <os/list.h>
+#include <os/string.h>
+#include <os/mm.h>
 
 #if BNUM >= 2000
 #define BCACHE_TABLE_SIZE 300
@@ -81,11 +85,11 @@ binit(void)
 	sleeplist_init(&nwait_sleep_queue);
 	init_list(&lru_head);
 	nwait = 0;
-	actual_buf_num = ROUND(sizeof(struct buf) * BNUM,NORMAL_PAGE_SIZE) / sizeof(struct buf);
+	actual_buf_num = ROUND(sizeof(struct buf) * BNUM,PAGE_SIZE) / sizeof(struct buf);
 	printk("> [binit] actual_buf_num = %d\n",actual_buf_num);
-	bufs = kmalloc(NORMAL_PAGE_SIZE);
-	int actual_buf_remain = ROUND(sizeof(struct buf) * BNUM,NORMAL_PAGE_SIZE) - NORMAL_PAGE_SIZE;
-	for (;actual_buf_remain!=0;actual_buf_remain-=NORMAL_PAGE_SIZE) kmalloc(NORMAL_PAGE_SIZE); //we assume that the memspace allocated here is coherent 
+	bufs = kmalloc(PAGE_SIZE);
+	int actual_buf_remain = ROUND(sizeof(struct buf) * BNUM,PAGE_SIZE) - PAGE_SIZE;
+	for (;actual_buf_remain!=0;actual_buf_remain-=PAGE_SIZE) kmalloc(PAGE_SIZE); //we assume that the memspace allocated here is coherent 
 	for (int i = 0; i < BCACHE_TABLE_SIZE; i++)
 		init_list(&bcache[i]);
 	for (struct buf *b = bufs; b < bufs + actual_buf_num; b++) {
@@ -196,7 +200,7 @@ bwrite(struct buf *b)
 	 * 2. We need different operations.
 	 */
 	
-	int res;
+	int __maybe_unused  res;
 	/**
 	 * Submit a write request to disk driver. If get positive
 	 * result, it means the buf it new in driver's queue, so

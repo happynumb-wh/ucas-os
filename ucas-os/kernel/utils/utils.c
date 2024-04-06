@@ -31,11 +31,11 @@ dentry_t* next_entry(dentry_t *p, char* buff, uint32_t* now_clus, uint32_t* now_
         {
             *now_clus = next_cluster(*now_clus);
             if(*now_clus == CLUSER_END)
-                return buff;
+                return (dentry_t *)buff;
             *now_sector = first_sec_of_clus(*now_clus);
         }
         disk_read(buff, *now_sector, READ_MAX_SEC);
-        p = buff;
+        p = (dentry_t *)buff;
     }
     return p;
 }
@@ -71,7 +71,7 @@ uint16_t char2unicode(char ch)
  * @param name2 
  * @return uint8_t 0表示相同，1表示不同
  */
-uint8_t filenamecmp(char *name1, char *name2)
+uint8_t filenamecmp(const char *name1, const char *name2)
 {    
     char n1[FAT32_MAX_FILENAME];
     char n2[FAT32_MAX_FILENAME];
@@ -151,7 +151,7 @@ void debug_print_dt(dentry_t * dt)
  * @param pos 定位所查找文件的所在目录项的扇区号，偏移位置，用来定位文件, 文件描述符使用
  * cluster_num 记录我们查找过程中的簇号
  */
-dentry_t *search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t mode, struct dir_pos *pos)
+dentry_t *search(const char *name, uint32_t dir_first_clus, char *buf, type_t mode, struct dir_pos *pos)
 {
     // printk("[search] name:%s\n", name);
     uint32_t sector_num = first_sec_of_clus(dir_first_clus);
@@ -212,7 +212,7 @@ dentry_t *search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t 
                     else filename[long_entry_num * LONG_FILENAME + count] = unicode2char(unicode);
                     count ++;
                 }
-                long_entry = (long_name_entry_t *)next_entry(long_entry, buf, &cluser_num, &sector_num);
+                long_entry = (long_name_entry_t *)next_entry((dentry_t *)long_entry, buf, &cluser_num, &sector_num);
                 dentry = (dentry_t *)long_entry;
             }    
         }else{//短目录项
@@ -236,7 +236,7 @@ dentry_t *search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t 
         if((dentry->arributes & ATTR_DIRECTORY) != 0 && mode == FILE_DIR && !filenamecmp(filename, name))
         {
             if( pos != NULL) {
-                pos->sec = sector_num + ((uchar *)dentry - buf) / SECTOR_SIZE;
+                pos->sec = sector_num + ((char *)dentry - buf) / SECTOR_SIZE;
                 pos->offset = ((uint64_t)dentry & (uint64_t)(511));
             }
                 
@@ -245,7 +245,7 @@ dentry_t *search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t 
         if((dentry->arributes & ATTR_DIRECTORY) == 0 && mode == FILE_FILE && !filenamecmp(filename, name))
         {
             if( pos != NULL) {
-                pos->sec = sector_num + ((uchar *)dentry - buf) / SECTOR_SIZE;
+                pos->sec = sector_num + ((char *)dentry - buf) / SECTOR_SIZE;
                 pos->offset = ((uint64_t)dentry & (uint64_t)(511));
             }
             return dentry;
@@ -266,7 +266,7 @@ dentry_t *search(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t 
  * @param pos 定位所查找文件的所在目录项的扇区号，偏移位置，用来定位文件, 文件描述符使用
  * cluster_num 记录我们查找过程中的簇号
  */
-dentry_t *search3(const uchar *name, uint32_t dir_first_clus, uchar *buf, struct dir_pos *pos)
+dentry_t *search3(const char *name, uint32_t dir_first_clus, char *buf, struct dir_pos *pos)
 {
     uint32_t sector_num = first_sec_of_clus(dir_first_clus);
     uint32_t cluser_num = dir_first_clus;
@@ -326,7 +326,7 @@ dentry_t *search3(const uchar *name, uint32_t dir_first_clus, uchar *buf, struct
                     else filename[long_entry_num * LONG_FILENAME + count] = unicode2char(unicode);
                     count ++;
                 }
-                long_entry = (long_name_entry_t *)next_entry(long_entry, buf, &cluser_num, &sector_num);
+                long_entry = (long_name_entry_t *)next_entry((dentry_t *)long_entry, buf, &cluser_num, &sector_num);
                 dentry = (dentry_t *)long_entry;
             }    
         }else{//短目录项
@@ -352,7 +352,7 @@ dentry_t *search3(const uchar *name, uint32_t dir_first_clus, uchar *buf, struct
         if(!filenamecmp(filename, name))
         {
             if( pos != NULL) {
-                pos->sec = sector_num + ((uchar *)dentry - buf) / SECTOR_SIZE;
+                pos->sec = sector_num + ((char *)dentry - buf) / SECTOR_SIZE;
                 pos->offset = ((uint64_t)dentry & (uint64_t)(511));
             }
             return dentry;
@@ -379,7 +379,7 @@ inode_t new_cwd;
 char cur_name[FAT32_MAX_FILENAME] = {0};
 char new_name[FAT32_MAX_FILENAME] = {0};
 char input_name[FAT32_MAX_FILENAME] = {0};
-inode_t find_dir(inode_t cur_cwd, char *name)
+inode_t find_dir(inode_t cur_cwd, const char *name)
 {
     static inode_t ret_dir;
     int len = strlen(name);
@@ -471,7 +471,6 @@ uint32_t find_entry_clus(char *buf)
     // 读取fat表
     uint32_t now_sec = fat.first_data_sec - fat.bpb.fat_sz;
     disk_read(buf, now_sec, READ_MAX_SEC);
-    int j = 0;
     uint32_t *fat_buf = (uint32_t *)buf;
     uint32_t cluser_num = 0;
     while (1)
@@ -505,7 +504,7 @@ uint32_t find_entry_clus(char *buf)
  * @param sec 连续目录项的起始目录项所在的目录文件片段的起始扇区
  * @return dentry_t* 连续目录项中的起始的一个目录项
  */
-dentry_t *find_entry_entry(uint32_t dir_first_clus, uchar *buf, uint32_t num, uint32_t *sec)
+dentry_t *find_entry_entry(uint32_t dir_first_clus, char *buf, uint32_t num, uint32_t *sec)
 {
     uint32_t clus_num = dir_first_clus;
     *sec = first_sec_of_clus(dir_first_clus);
@@ -516,8 +515,8 @@ dentry_t *find_entry_entry(uint32_t dir_first_clus, uchar *buf, uint32_t num, ui
     //     printk("%x, ", buf[i]);
     // }
     int count = 0;//用来记录找到的连续空目录项个数
-    dentry_t *ret_entry; //起始目录项
-    int ret_sec;
+    dentry_t *ret_entry = NULL; //起始目录项
+    int ret_sec = 0;
     uint32_t old_clus;
     while (1)
     {
@@ -580,7 +579,7 @@ dentry_t *find_entry_entry(uint32_t dir_first_clus, uchar *buf, uint32_t num, ui
  * @param type 创建类型
  * @return dentry_t 返回目录项
  */
-dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, struct dir_pos *pos_t)
+dentry_t* create_new(char *name, uint32_t cur_clus, char *buf, type_t type, struct dir_pos *pos_t)
 {
     // printk("creat name: %s, cur clus: %d, mode: %s\n", name, cur_clus, (type==FILE_DIR)?"dir": "file");
    
@@ -720,7 +719,7 @@ dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, str
             long_entry[i].attributes = ATTR_LONG_NAME;
             long_entry[i].reserved = 0;
             uint8 sum = 0; 
-            uchar*shortname = &new_dentry;
+            char*shortname = (char *)(&new_dentry);
             for (int j = 0; j < 11; j++)
             {
                 sum = (sum & 0x1 ? 0x80 : 0) + (sum >> 1) + *shortname++;
@@ -737,7 +736,7 @@ dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, str
     {
         memcpy(entry, &long_entry[dentry_num - 2 - i], sizeof(dentry_t));
         // printk("entry name: %s, sec: %d\n", ((long_name_entry_t*)entry)->name1, sec);
-        if(entry + 1 == buf + BUFSIZE)
+        if(entry + 1 == (dentry_t *)(buf + BUFSIZE))
         {
             disk_write(buf, sec, READ_MAX_SEC);
         }
@@ -754,14 +753,14 @@ dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, str
     ret_dentry = entry;
     temp = kmalloc(PAGE_SIZE);
     if(pos_t){
-        pos_t->sec = sec + ((uchar *)ret_dentry - buf) / SECTOR_SIZE;;
+        pos_t->sec = sec + ((char *)ret_dentry - buf) / SECTOR_SIZE;;
         pos_t->offset = ((uint64_t)entry & (uint64_t)(511));
     }
     if(type == FILE_DIR)
     {
         sec = first_sec_of_clus(new_clus);
         memset(temp, 0, BUFSIZE);
-        entry = temp;
+        entry = (dentry_t *)temp;
         entry->dename[0] = '.';
         for (int i = 1; i < SHORT_FILENAME; i++)
         {
@@ -810,7 +809,7 @@ dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, str
     }
     
     // if( pos != NULL) {
-    //     pos->sec = sector_num + ((uchar *)dentry - buf) / SECTOR_SIZE;
+    //     pos->sec = sector_num + ((char *)dentry - buf) / SECTOR_SIZE;
     //     pos->offset = ((uint64_t)dentry & (uint64_t)(511));
     // }
     write_fat_table_p(0, new_clus, temp);
@@ -821,7 +820,7 @@ dentry_t* create_new(char *name, uint32_t cur_clus, uchar *buf, type_t type, str
 }
 
 //可以返回长名字目录项的起始目录项
-dentry_t *search2(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t mode, struct dir_pos *pos)
+dentry_t *search2(const char *name, uint32_t dir_first_clus, char *buf, type_t mode, struct dir_pos *pos)
 {
     uint32_t sector_num = first_sec_of_clus(dir_first_clus);
     uint32_t cluser_num = dir_first_clus;
@@ -888,7 +887,7 @@ dentry_t *search2(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t
                     else filename[long_entry_num * LONG_FILENAME + count] = unicode2char(unicode);
                     count ++;
                 }
-                dentry = next_entry(long_entry, buf, &cluser_num, &sector_num);
+                dentry = next_entry((dentry_t *)long_entry, buf, &cluser_num, &sector_num);
                 long_entry = (long_name_entry_t *)dentry;
             }        
         }else{//短目录项
@@ -940,7 +939,7 @@ dentry_t *search2(const uchar *name, uint32_t dir_first_clus, uchar *buf, type_t
  * @brief 判断是否是绝对路径
  * @param path 路径
  */
-uint32_t is_ab_path(uchar *path)
+uint32_t is_ab_path(const char *path)
 {
     return path[0] == '/';
 }
@@ -948,14 +947,17 @@ uint32_t is_ab_path(uchar *path)
 /**
  * @brief 预处理路径，去除前部的'/'以及'./'
  */
-uchar * pre_path(uchar *path, uint32_t dir_clus)
+const char * pre_path(const char *path, uint32_t dir_clus)
 {
     if (path[0] == '/')
         return &path[1];
     else if (dir_clus == root.clus_num) {
-        if (path[0] == '.') 
+        if (path[0] == '.')
+        {
             if (path[1] == '\0') return &path[1]; // "."
-            else return &path[2]; // "./"
+            else return &path[2]; // "./"            
+        } 
+
     }
     return path;
 }
@@ -964,15 +966,14 @@ uchar * pre_path(uchar *path, uint32_t dir_clus)
  * @brief 得到下一个/之后的名字，如果已经到了最后一个则按情况处理
  * @param name 名字
  */
-uint8_t get_next_name(uchar *name)
+uint8_t get_next_name(char *name)
 {
-    uchar *pre = name;
     for (int i = 0; ; i++){
         if (name[i] == '/') {
-            name[i] = NULL;
+            name[i] = '\0';
             return 1;
-        } else if (name[i] == NULL) {
-            name[i] = NULL;
+        } else if (name[i] == '\0') {
+            name[i] = '\0';
             return 0;
         }
     }
@@ -1016,7 +1017,7 @@ uint8 set_fd_from_dentry(void *pcb_underinit, char * name, uint i, \
  */
 uint32_t search_empty_cluster()
 {
-    uchar * buf = kmalloc(PAGE_SIZE);
+    char * buf = kmalloc(PAGE_SIZE);
     uint32_t now_sec = fat.first_data_sec - 2*fat.bpb.fat_sz;
     disk_read(buf, now_sec, 1);
     uint32_t j = 0;
@@ -1060,7 +1061,7 @@ uint32_t alloc_free_clus()
  */
 void write_fat_table(uint32_t old_clus, uint32_t new_clus)
 {
-    uchar *buff = kmalloc(PAGE_SIZE);
+    char *buff = kmalloc(PAGE_SIZE);
     uint32_t *clusat;
     uint32_t op_clus = old_clus ? old_clus : new_clus;
     /* TABLE 1*/
@@ -1103,7 +1104,7 @@ void update_fd_from_pos(fd_t * fd, size_t pos)
  * @brief handle the special path
  * @param path the path 
  */
-int open_special_path(fd_t * new_fd, const uchar * path)
+int open_special_path(fd_t * new_fd, const char * path)
 {
     if (!strcmp("/dev/null",path) || !strcmp("/dev/null/invalid",path)){
         new_fd->dev = DEV_NULL;
@@ -1135,8 +1136,8 @@ int open_special_path(fd_t * new_fd, const uchar * path)
         return 1;     
     }else if (!strcmp("/dev/tty",path)) {
         strcpy(new_fd->name, path);
-        new_fd->dev == DEV_STDOUT;
-        return 1;  
+        new_fd->dev = DEV_STDOUT;
+        return 1;
     }    
     return 0;
 }
@@ -1147,7 +1148,7 @@ int open_special_path(fd_t * new_fd, const uchar * path)
  * @param buf the buf
  * @param cout the read count
  */
-int read_special_path(fd_t * nfd, uchar *buf, size_t count)
+int read_special_path(fd_t * nfd, char *buf, size_t count)
 {
     if(nfd->dev == DEV_STDIN){
         return read_ring_buffer(&stdin_buf, buf, count);
@@ -1198,7 +1199,7 @@ int read_special_path(fd_t * nfd, uchar *buf, size_t count)
  * @param buf the write buf
  * @param count the num of write
  */
-int write_special_path(fd_t * nfd, uchar *buf, size_t count)
+int write_special_path(fd_t * nfd, const char *buf, size_t count)
 {
     if (nfd->dev == DEV_STDIN){
         return write_ring_buffer(&stdin_buf, buf, count);
@@ -1211,7 +1212,7 @@ int write_special_path(fd_t * nfd, uchar *buf, size_t count)
         // return count;
         if (!strcmp(buf,"echo: write error: Invalid argument\n")) 
             return strlen("echo: write error: Invalid argument\n"); //ignore this invalid info
-        return screen_stderror(DEV_STDERR, buf, count);
+        return screen_stderror(DEV_STDERR, (char *)buf, count);
     }
     else if (nfd->dev == DEV_NULL) return count;
     else if (nfd->dev == DEV_ZERO) return 0;
@@ -1239,7 +1240,7 @@ int write_special_path(fd_t * nfd, uchar *buf, size_t count)
         memcpy(elf_files[file_id].file_content + nfd->pos, buf, write_len);
         nfd->pos += write_len;
         if(nfd->pos >= nfd->length){
-            buf[write_len] = (-1);//EOF
+            ((char *)buf)[write_len] = (-1);//EOF
         }
         return write_len;        
     }

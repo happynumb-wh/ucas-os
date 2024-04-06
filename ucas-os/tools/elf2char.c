@@ -88,18 +88,18 @@ int main(int argc, char *argv[])
             );
             // argv[i] already changed by
             // file_name_to_variable_name
-            printf("static int _length_%s;\n", argv[i]);
+            printf("extern int _length_%s;\n", argv[i]);
         } else {
             int file_size = 0;
             argv[i] = basename(argv[i]);
             printf(
-                "extern unsigned char _elf_%s[] = {\n%s\n};\n",
+                "unsigned char _elf_%s[] = {\n%s\n};\n",
                 file_name_to_variable_name(argv[i]),
                 escaped_file_content(f, &file_size));
 
             // argv[i] already changed by
             // file_name_to_variable_name
-            printf("static int _length_%s = %d;\n", argv[i], file_size);
+            printf("int _length_%s = %d;\n", argv[i], file_size);
         }
         fclose(f);
     }

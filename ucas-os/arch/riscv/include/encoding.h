@@ -723,6 +723,7 @@
 #define CSR_SEPC 0x141U
 #define CSR_SCAUSE 0x142U
 #define CSR_SBADADDR 0x143U
+#define CSR_STVAL 0x143U
 #define CSR_SIP 0x144U
 #define CSR_SPTBR 0x180U
 #define CSR_MSTATUS 0x300U

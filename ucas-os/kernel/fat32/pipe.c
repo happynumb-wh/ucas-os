@@ -29,7 +29,7 @@ void init_pipe(){
  *           0:  read unavailable
  *           others: actually read size 
  */
-int32_t pipe_read(uchar *buf, uint32_t pip_num, size_t count){
+int32_t pipe_read(char *buf, uint32_t pip_num, size_t count){
     //do_mutex_lock_acquire(&pipe[pip_num].lock);
     if (count == 0) return 0;
     if (!pipe[pip_num].r_valid) {
@@ -62,7 +62,7 @@ int32_t pipe_read(uchar *buf, uint32_t pip_num, size_t count){
  *          0: succeed
  *          others: actually write size 
  */
-int32_t pipe_write(uchar *buf, uint32_t pip_num, size_t count){
+int32_t pipe_write(const char *buf, uint32_t pip_num, size_t count){
     //do_mutex_lock_acquire(&pipe[pip_num].lock);
     if (!pipe[pip_num].w_valid) {
         //do_mutex_lock_release(&pipe[pip_num].lock);
@@ -148,7 +148,7 @@ int32_t alloc_one_pipe()
  *          0: succeed
  */
 int32_t fat32_pipe2(uint32_t *fd){
-    int i,j;
+    int i;
     uint32_t pipenum;
     //alloc pipe
     for (i=0;i<PIPE_NUM;i++) {

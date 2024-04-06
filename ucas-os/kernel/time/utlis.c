@@ -2,6 +2,7 @@
 #include <os/sched.h>
 #include <os/mm.h>
 #include <os/irq.h>
+#include <os/smp.h>
 #include <type.h>
 
 
@@ -30,7 +31,7 @@ void ticks_to_timespec(time_t time, timespec_t *ts)
  * @return ticks
  * 
  */
-uint64_t timespec_to_ticks(timespec_t *ts){
+uint64_t timespec_to_ticks(const timespec_t *ts){
     uint64_t nsec = ts->tv_nsec, nticks = 0;
     for (uint8_t i = 0; i < NANO; i++){
         nticks += time_base * (nsec % 10);
@@ -47,7 +48,7 @@ uint64_t timespec_to_ticks(timespec_t *ts){
  * @return ticks
  * 
  */
-uint64_t timeval_to_ticks(timeval_t *tms){
+uint64_t timeval_to_ticks(const timeval_t *tms){
     uint64_t usec = tms->tv_usec, uticks = 0;
     for (uint8_t i = 0; i < MICRO; i++){
         uticks += time_base * (usec % 10);

@@ -1,9 +1,11 @@
 #include <os/futex.h>
 #include <os/irq.h>
 #include <os/mm.h>
-#include <assert.h>
 #include <os/sched.h>
+#include <os/smp.h>
+#include <assert.h>
 
+spinlock_init(futex_lock);
 futex_bucket_t futex_buckets[FUTEX_BUCKETS]; //HASH LIST
 futex_node_t futex_node[MAX_FUTEX_NUM];
 int futex_node_used[MAX_FUTEX_NUM] = {0};
@@ -64,7 +66,7 @@ static futex_node_t* get_node(int *val_addr, int create)
     return NULL;
 }
 
-int do_futex_wait(int *val_addr, int val, struct timespec *timeout)
+int do_futex_wait(int *val_addr, int val, const struct timespec *timeout)
 {
     // acquire(&futex_lock);
     futex_node_t *node = get_node(val_addr,1);
@@ -73,7 +75,7 @@ int do_futex_wait(int *val_addr, int val, struct timespec *timeout)
     if(timeout && (timeout->tv_nsec != 0 || timeout->tv_sec != 0)){
         node->set_ts.tv_sec = timeout->tv_sec;
         node->set_ts.tv_nsec = timeout->tv_nsec;
-        do_gettimeofday(&node->add_ts);
+        do_gettimeofday((timeval_t *)&node->add_ts);
     }else if(timeout == 0){
         node->set_ts.tv_sec = 0;
         node->set_ts.tv_nsec = 0;
@@ -120,12 +122,13 @@ int do_futex_requeue(int *uaddr, int* uaddr2, int num){
         list_del(pcb_node);
         list_add(pcb_node, &node2->block_queue); 
     }
+
+    return 0;
 }
 
-//TODO
 void check_futex_timeout() {
     struct timespec cur_time;
-    do_gettimeofday(&cur_time);
+    do_gettimeofday((timeval_t *)&cur_time);
     // printk("cur_time :%d, %d\n", cur_time.tv_sec, cur_time.tv_nsec);
     for (int i=0;i<MAX_FUTEX_NUM;i++){   
         if (futex_node_used[i]) {
@@ -168,24 +171,20 @@ void check_futex_timeout() {
         }
     }
 }
-int do_futex(int *uaddr, int futex_op, int val,
+int do_futex(uint32_t *uaddr, int futex_op, int val,
           	const struct timespec *timeout,   /* or: uint32_t val2 */
          	 int *uaddr2, int val3){
-    // printk("[futex] op: %d, uaddr: 0x%x(%d),uaddr2: 0x%x, val: %d, timeout = 0x%x(%d)\n", futex_op, uaddr, *uaddr,uaddr2, val, timeout, timeout);
     if((futex_op & FUTEX_WAKE) == FUTEX_WAKE){
-        // printk("futex waking, uaddr: %x\n", uaddr);
-        do_futex_wakeup(uaddr, val);
+        do_futex_wakeup((int *)uaddr, val);
     }else if((futex_op & FUTEX_WAIT) == FUTEX_WAIT){  // always 1
         if(*uaddr == val){
-            // printk("futex waiting, uaddr: %x\n", uaddr);
-            do_futex_wait(uaddr, val, timeout);
+            do_futex_wait((int *)uaddr, val, timeout);
         }else{
             return -EAGAIN;
         }
     }
     if((futex_op & FUTEX_REQUEUE) == FUTEX_REQUEUE){
-        // printk("futex requeue, uaddr: %x, uaddr2: %x\n", uaddr, uaddr2);
-        do_futex_requeue(uaddr, uaddr2, timeout);
+        do_futex_requeue((int *)uaddr, uaddr2, FUTEX_BUCKETS);
     }
     return 0;
 }

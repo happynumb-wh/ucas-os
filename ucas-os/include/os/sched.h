@@ -33,6 +33,7 @@
 #include <pgtable.h>
 #include <csr.h>
 #include <type.h>
+#include <compile.h>
 #include <os/list.h>
 #include <os/mm.h>
 #include <os/system.h>
@@ -42,8 +43,6 @@
 #include <fs/file.h>
 #include <os/signal.h>
 #include <os/resource.h>
-#include <hash/uthash.h>
-// #include <user_programs.h>
 
 #define NUM_MAX_TASK 35
 #define NUM_MAX_USTACK 2
@@ -212,7 +211,7 @@ typedef struct pcb
 // exited
 #define WEXITSTATUS(exit_status) ((exit_status) << 8) & 0xff00)
 // conv-default
-static const char *fixed_envp[] = {
+static const char *fixed_envp[] __maybe_unused = {
                                     "SHELL=/bin/bash",
                                     "PWD=/",
                                     "LOGNAME=root",
@@ -263,8 +262,8 @@ extern source_manager_t available_queue;
 register pcb_t * current_running asm ("tp");
 
 /* smp */
-extern pcb_t * volatile current_running_master;
-extern pcb_t * volatile current_running_slave;
+extern pcb_t * current_running_master;
+extern pcb_t * current_running_slave;
 
 extern pid_t process_id;
 
@@ -274,10 +273,10 @@ extern pcb_t pcb[NUM_MAX_TASK];
 // static LIST_HEAD(ZOMBIE_queue);
 
 /*master*/
-extern volatile pcb_t pid0_pcb_master;
+extern pcb_t pid0_pcb_master;
 extern const ptr_t pid0_stack_master;
 /*slave*/
-extern volatile pcb_t pid0_pcb_slave;
+extern pcb_t pid0_pcb_slave;
 extern const ptr_t pid0_stack_slave;
 
 // gp
@@ -287,7 +286,7 @@ extern void __global_pointer$();
 /* init */
 void init_pcb_stack(
     ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point,
-    pcb_t *pcb, int argc, char *argv[]);
+    pcb_t *pcb);
 void init_clone_stack(pcb_t *pcb, void * tls);
 
 // load process mirroring
@@ -306,11 +305,11 @@ void init_execve_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode);
 /* clone copy on write*/
 void copy_on_write(PTE src_pgdir, PTE dst_pgdir);
 /* handle exec for pipe and redirect */
-int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, char* argv[]);
+int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, const char* argv[]);
 
 /* copy all the things on the user stack */ 
 uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
-            char *argv[], char *envp[], char *filenam);
+            const char *argv[], const char *envp[], const char *filenam);
 
 
 /* scheduler */
@@ -334,12 +333,12 @@ void do_block(list_node_t *, list_head *queue);
 void do_unblock(list_node_t *);                
 
 /* process */
-extern pid_t do_exec(const char *file_name, int argc, char* argv[], spawn_mode_t mode);
-extern pid_t do_execve(const char* path, char* argv[], char *const envp[]);
+extern pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t mode);
+extern pid_t do_execve(const char* path, const char* argv[], const char * envp[]);
 extern void do_exit(int32_t exit_status);
 extern void do_exit_group(int32_t exit_status);
 extern uint64_t do_wait4(pid_t pid, uint16_t *status, int32_t options);
-uint64_t get_num_from_parm(char *parm[]);
+uint64_t get_num_from_parm(const char *parm[]);
 
 /* id */
 extern pid_t do_getpid();

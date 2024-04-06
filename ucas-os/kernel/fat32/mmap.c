@@ -26,7 +26,7 @@ static void mmap_addr(uint64_t ptr, uint64_t size)
 }
 
 /* 成功返回已映射区域的指针，失败返回-1*/
-int64 fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off)
+uint64_t fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off)
 {
     // printk("[mmap] start:%x, flags: %x, len:0x%x, fd: %d, off:%d\n", start, flags, len, fd, off);
     if(len <= 0 || (uintptr_t)start % NORMAL_PAGE_SIZE != 0){
@@ -44,8 +44,8 @@ int64 fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off
             // no lazy
             // start = lazy_brk(0);
             // lazy_brk(start + len);
-            start = current->mm.mmap_base;
-            mmap_addr(start, len);
+            start = (void *)current->mm.mmap_base;
+            mmap_addr((uint64_t)start, len);
             // fat32_lseek(fd, off, SEEK_SET);
             // fat32_read(fd, start, len);
         }
@@ -70,8 +70,8 @@ int64 fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off
             // if ((uint64_t)start & 0x0fff)
             //     start = (uint64_t)do_brk(ROUND((uint64_t)start, PAGE_SIZE));
             // do_brk(start + len);   
-            start = current->mm.mmap_base;
-            mmap_addr(start, len);     
+            start = (void *)current->mm.mmap_base;
+            mmap_addr((uint64_t)start, len);     
         } 
         else {
             // check_addr_alloc(start, len);                   
@@ -90,7 +90,7 @@ int64 fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off
         // fat32_read(fd, start, len);
     }    
     // printk("[mmap] return start: %x\n",start);
-    return start;
+    return (uint64_t)start;
 }
 
 /* 成功返回0，失败返回-1*/
@@ -136,12 +136,12 @@ int64 fat32_munmap(void *start, size_t len)
             fat32_lseek(nfd->fd_num,old_seek,SEEK_SET);
             // freepage
             for (void *cur_page = start; cur_page < start + len; cur_page += NORMAL_PAGE_SIZE){
-                if (get_kva_of(cur_page,current_running->pgdir) != NULL){
+                if (get_kva_of((uintptr_t)cur_page,current_running->pgdir) != 0){
                     // printk("freepage:%lx\n", cur_page);
-                    free_page_helper(cur_page, current_running->pgdir);
+                    free_page_helper((uintptr_t)cur_page, current_running->pgdir);
                 }
             }
-            if (current_running->edata == start + len) current_running->edata = start;
+            if (current_running->edata == (uint64_t)start + len) current_running->edata = (uint64_t)start;
             if (nfd->used == 2) {
                 fat32_close(nfd->fd_num);
             }
@@ -157,7 +157,7 @@ void *fat32_mremap(void *old_address, size_t old_size, size_t new_size, int flag
     int i;
     for (i = 0; i < MAX_FILE_NUM; i++) 
         if (current_running->pfd[i].used && current_running->pfd[i].mmap.used && current_running->pfd[i].mmap.start == old_address) break;
-    if (i == MAX_FILE_NUM) return -EINVAL;
+    if (i == MAX_FILE_NUM) return (void *)(-EINVAL);
     fd_t *nfd = &current_running->pfd[i];
     // int old_seek = fat32_lseek(nfd->fd_num,0,SEEK_CUR);
     int prot = nfd->mmap.prot;

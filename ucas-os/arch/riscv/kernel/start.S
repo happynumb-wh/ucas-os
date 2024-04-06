@@ -22,6 +22,17 @@ ENTRY(_boot)
   csrw CSR_SIE, zero
   csrw CSR_SIP, zero
 
+  /* Clear BSS for flat non-ELF images */
+  la a3, __bss_start
+  la a4, __BSS_END__
+  ble a4, a3, clear_bss_done
+clear_bss:
+  sd zero, (a3)
+  addi a3, a3, RISCV_SZPTR
+  blt a3, a4, clear_bss
+clear_bss_done:
+
+
   // Disable FPU in kernel space
   li t0, SR_FS
   csrc sstatus, t0
@@ -31,7 +42,6 @@ ENTRY(_boot)
 
   mv a0, a0
   mv a1, a1
-  mv a2, a2
 
   // this will never return
   call boot_kernel

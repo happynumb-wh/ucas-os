@@ -31,7 +31,7 @@ void init_pipe();
 int32_t close_pipe_read(uint32_t pip_num);
 int32_t close_pipe_write(uint32_t pip_num);
 int32_t fat32_pipe2(uint32_t *fd);
-int32_t pipe_read(uchar *buf, uint32_t pip_num, size_t count);
-int32_t pipe_write(uchar *buf, uint32_t pip_num, size_t count);
+int32_t pipe_read(char *buf, uint32_t pip_num, size_t count);
+int32_t pipe_write(const char *buf, uint32_t pip_num, size_t count);
 int32_t alloc_one_pipe();
 #endif

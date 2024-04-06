@@ -15,6 +15,8 @@
 #ifndef _DRIVER_SPI_H
 #define _DRIVER_SPI_H
 
+#include <type.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

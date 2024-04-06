@@ -8,7 +8,6 @@ int32_t do_ppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, 
         printk("signal is not implied\n");
     }
     nfds_t ret = 0;
-    int timer = 0;
     for (int i = 0; i < nfds; i++)
     {
         if(fds->fd < 0){
@@ -24,8 +23,8 @@ int32_t do_ppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, 
                 }
             } else if(fd->dev == DEV_PIPE){
                 if(fds->events & POLLIN){
-                    struct ring_buffer *rbuf = &(pipe[current_running->pfd[get_fd_index(fds->fd, current_running)].pip_num].rbuf);
-                    while (ring_buffer_empty(&rbuf)) do_scheduler();
+                    struct ring_buffer *rbuf = (struct ring_buffer *)&(pipe[current_running->pfd[get_fd_index(fds->fd, current_running)].pip_num].rbuf);
+                    while (ring_buffer_empty(rbuf)) do_scheduler();
                     fds->revents = POLLIN;
                     ret++;
                 }

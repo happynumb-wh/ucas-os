@@ -8,7 +8,8 @@ int init_socket(){
     for (int i=1;i<=MAX_SOCK_NUM;i++) {
         memset(&sock[i],0,sizeof(struct socket));
         init_ring_buffer(&sock[i].data);
-    }
+    }\
+    return 0;
 }
 // 分配并初始化一个socket，将对应的信息填入其中
 int do_socket(int domain, int type, int protocol){
@@ -129,7 +130,7 @@ ssize_t do_sendto(int sockfd, void *buf, size_t len, int flags, struct sockaddr 
     // for here, sockfd and flags are trivial because of the leak of network function
     
     assert(addrlen == sizeof(struct sockaddr));
-    int i,j;
+    int i;
     do_mutex_lock_acquire(&sock_lock);
     for (i=1;i<=MAX_SOCK_NUM;i++)
         if (!memcmp(dest_addr,sock[i].addr,sizeof(struct sockaddr)) && 
@@ -154,7 +155,6 @@ ssize_t do_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockadd
     
     assert(current_running->pfd[get_fd_index(sockfd,current_running)].dev == DEV_SOCK);
     int sock_num = current_running->pfd[get_fd_index(sockfd,current_running)].sock_num;
-    int i;
     do_mutex_lock_acquire(&sock_lock);
     int read_len = (len<ring_buffer_used(&sock[sock_num].data))?len:ring_buffer_used(&sock[sock_num].data);
     //printk("ready to read ringbuffer! ringbuffer:%lx, buf = %lx, len = %d\n",&sock[sock_num].data,buf,read_len);

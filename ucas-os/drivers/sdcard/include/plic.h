@@ -58,7 +58,7 @@
 #define _DRIVER_PLIC_H
 
 //#include <stdint.h>
-#include "encoding.h"
+#include <encoding.h>
 #include "platform.h"
 
 /* For c++ compatibility */

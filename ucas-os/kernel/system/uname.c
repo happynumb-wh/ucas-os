@@ -19,11 +19,11 @@ uint8 do_uname(struct utsname *uts)
 {
     // if (sizeof(uts) != sizeof(utsname_t))
     //     return -1;
-    strcpy(uts->sysname, utsname.sysname); 
-    strcpy(uts->nodename, utsname.nodename); 
-    strcpy(uts->release, utsname.release);
-    strcpy(uts->version, utsname.version);
-    strcpy(uts->machine, utsname.machine);
-    strcpy(uts->domainname, utsname.domainname);
+    strcpy((char *)uts->sysname, utsname.sysname); 
+    strcpy((char *)uts->nodename, utsname.nodename); 
+    strcpy((char *)uts->release, utsname.release);
+    strcpy((char *)uts->version, utsname.version);
+    strcpy((char *)uts->machine, utsname.machine);
+    strcpy((char *)uts->domainname, utsname.domainname);
     return 0;
 }

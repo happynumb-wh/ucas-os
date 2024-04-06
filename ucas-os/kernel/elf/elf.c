@@ -1,5 +1,6 @@
 #include <os/elf.h>
 #include <os/sched.h>
+#include <os/mm.h>
 #include <fs/fat32.h>
 #include <utils/utils.h>
 #include <assert.h>
@@ -34,8 +35,7 @@ void debug_print_phdr(Elf64_Phdr phdr)
 
 /* prepare_page_for_kva should return a kernel virtual address */
 uintptr_t load_elf(
-    ElfFile *elf, uintptr_t pgdir, uint64_t *mem_alloc, pcb_t *initpcb ,  int *dynamic,
-    uintptr_t (*prepare_page_for_va)(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag))
+    ElfFile *elf, uintptr_t pgdir, uint64_t *mem_alloc, pcb_t *initpcb ,  int *dynamic)
 {
     initpcb->elf.edata = 0;
 
@@ -56,17 +56,11 @@ uintptr_t load_elf(
     Elf64_Shdr *shdr = NULL;
     Elf64_Ehdr *ehdr = NULL;
 
-    Elf64_Shdr *sec_text = NULL;
-    Elf64_Shdr *ulib_text = NULL;  
     /* As a loader, we just care about segment,
      * so we just parse program headers.
      */
-    unsigned char *ptr_ph_table = NULL;
-    unsigned char *ptr_sh_table = NULL;    
+    Elf64_Phdr *ptr_ph_table = NULL;
     Elf64_Half ph_entry_count;
-    Elf64_Half ph_entry_size;
-    Elf64_Half sh_entry_count;
-    Elf64_Half sh_entry_size;
     int i;
 
     ehdr = (Elf64_Ehdr *)elf_binary;    
@@ -79,16 +73,12 @@ uintptr_t load_elf(
     char * secstrs;
 
     // check whether `binary` is a ELF file.
-    if (length < 4 || !is_elf_format(elf_binary)) {
+    if (length < 4 || !is_elf_format((uchar *)elf_binary)) {
         return 0;  // return NULL when error!
     }
 
-    ptr_ph_table   = elf_binary + ehdr->e_phoff;
-    ptr_sh_table   = elf_binary + ehdr->e_shoff;
+    ptr_ph_table   = (Elf64_Phdr *)(elf_binary + ehdr->e_phoff);
     ph_entry_count = ehdr->e_phnum;
-    ph_entry_size  = ehdr->e_phentsize;
-    sh_entry_count = ehdr->e_shnum;
-    sh_entry_size  = ehdr->e_shentsize;
 
     // save all useful message
     initpcb->elf.phoff = ehdr->e_phoff;
@@ -127,7 +117,7 @@ uintptr_t load_elf(
 page_remain_qemu: ;
                 if (i < phdr->p_filesz) {
                     unsigned char *bytes_of_page =
-                        (unsigned char *)prepare_page_for_va(
+                        (unsigned char *)alloc_page_helper(
                             (uintptr_t)(phdr->p_vaddr + i), 
                                                     pgdir,
                                                 MAP_USER,
@@ -180,7 +170,7 @@ page_remain_qemu: ;
                     }
                 } else {
                     long *bytes_of_page =
-                        (long *)prepare_page_for_va(
+                        (long *)alloc_page_helper(
                             (uintptr_t)(phdr->p_vaddr + i), 
                             pgdir,
                             MAP_USER,
@@ -221,7 +211,7 @@ page_remain_qemu: ;
             }                        
         }
 
-        ptr_ph_table += ph_entry_size;
+        ptr_ph_table++;
     }
 
     memset(mm, 0, sizeof(mm_struct_t));
@@ -289,11 +279,10 @@ char * default_dll_linker = "/lib/ld-linux-riscv64-lp64d.so.1";
  * @param fd 文件描述符
  * @param pgdir 页表
  * @param file_length 加载的长度
- * @param prepare_page_for_va alloc_pagr_helper
+ * @param alloc_page_helper alloc_pagr_helper
  * @return return the entry of the process
  */
-uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, int *dynamic, pcb_t *initpcb ,
-    uintptr_t (*prepare_page_for_va)(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag))
+uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, int *dynamic, pcb_t *initpcb)
 {
 
     // mm_struct of the process
@@ -314,7 +303,7 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
     // read all the file into memory
     fd_t *_nfd = &current_running->pfd[get_fd_index(fd, current_running)];   
     assert(_nfd != NULL);
-    uchar *__load_buff = (uchar *)LOAD_BUFFER;
+    char *__load_buff = (char *)LOAD_BUFFER;
     assert(_nfd->length < 0x1000000);
     fat32_lseek(fd, 0, SEEK_SET);
     uint64_t _read_length =  fat32_read(fd, __load_buff, _nfd->length);
@@ -332,7 +321,7 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
     Elf64_Half ph_entry_size;
     int i = 0;
     // check whether `binary` is a ELF file.
-    if (_read_length < 4 || !is_elf_format(_ehdr)) {
+    if (_read_length < 4 || !is_elf_format((uchar *)_ehdr)) {
         return 0;  // return NULL when error!
     }
     ptr_ph_table   = _ehdr->e_phoff;
@@ -369,7 +358,7 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
 page_remain_k210: ;
                 if (i < _phdr->p_filesz) {
                     unsigned char *bytes_of_page =
-                        (unsigned char *)prepare_page_for_va(
+                        (unsigned char *)alloc_page_helper(
                                (uintptr_t)(_phdr->p_vaddr + i), 
                                                        pgdir,
                                                     MAP_USER,\
@@ -382,7 +371,7 @@ page_remain_k210: ;
                     uint64_t page_remain = (uint64_t)page_top - \
                                     (uint64_t)(bytes_of_page);   
 
-                    uchar * __ptr = (uchar *)((uint64_t)__load_buff + _phdr->p_offset + i);
+                    char * __ptr = (char *)((uint64_t)__load_buff + _phdr->p_offset + i);
 
                     if (page_remain == 0) 
                     {
@@ -402,8 +391,8 @@ page_remain_k210: ;
                     }
                     
                 } else {
-                    long *bytes_of_page =
-                        (long *)prepare_page_for_va(
+                    long * __maybe_unused bytes_of_page =
+                        (long *)alloc_page_helper(
                         (uintptr_t)(_phdr->p_vaddr + i), 
                                               pgdir,
                                               MAP_USER,

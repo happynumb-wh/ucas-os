@@ -28,17 +28,17 @@
 #ifndef INCLUDE_STRING_H_
 #define INCLUDE_STRING_H_
 #include <type.h>
-void memcpy(uint8_t *dest, const uint8_t *src, uint32_t len);
-int  memcmp(const void *ptr1, const void *ptr2, size_t num);
-void memset(void *dest, uint8_t val, uint32_t len);
-void memove(uint8_t *dest, const uint8_t *src, uint32_t len);
-void bzero(void *dest, uint32_t len);
-int strcmp(const char *str1, const char *str2);
-int strncmp(const char *str1, const char *str2, int n);
-char *strcpy(char *dest, const char *src);
-char *strcat(char *dest, const char *src);
-int strlen(const char *src);
-int atoi(char *s, uint32_t mode);
-long int atol (const char * str);
+extern void memcpy(void *dest, const void* src, size_t len);
+extern int  memcmp(const void *ptr1, const void *ptr2, size_t num);
+extern void memset(void *dest, uint8_t val, size_t len);
+extern void memmove(void *dest, const void *src, size_t len);
+extern void bzero(void *dest,  size_t len);
+extern int strcmp(const char *str1, const char *str2);
+extern int strncmp(const char *str1, const char *str2, int n);
+extern char *strcpy(char *dest, const char *src);
+extern char *strcat(char *dest, const char *src);
+extern int strlen(const char *src);
+extern int atoi(char *s, uint32_t mode);
+extern long int atol (const char * str);
 
 #endif

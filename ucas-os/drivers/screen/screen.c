@@ -1,6 +1,7 @@
 #include <screen.h>
 #include <os/string.h>
 #include <common.h>
+#include <sbi.h>
 #include <os/sched.h>
 #include <os/ring_buffer.h>
 
@@ -30,7 +31,6 @@ void init_screen(){
 // clear screen buffer 
 void screen_clear(){
     //do_mutex_lock_acquire(&SCREEN.screen_lock);
-    pcb_t * current_running = get_current_cpu_id() == 0 ? current_running_master :current_running_slave; 
 
     memset((void *)SCREEN.buffer, 0, BUFFER_SIZE);
     SCREEN.head = SCREEN.tail = SCREEN.num = 0; 
@@ -46,7 +46,7 @@ void screen_write_ch(char ch){
 
 // reflush screen buffer
 void screen_reflush(){
-    return 0;
+    return;
     // do_mutex_lock_acquire(&SCREEN.screen_lock);
     // return 0;
     while(SCREEN.num > 0){
@@ -70,7 +70,7 @@ void screen_write(char *str){
     //     /* code */
     // }
     printk(str);
-    return length;
+    return;
     while(length > BUFFER_SIZE - SCREEN.num)
     {
         do_block(&current_running->list, &SCREEN.wait_list);
@@ -83,7 +83,7 @@ void screen_write(char *str){
     }
 }
 
-int64 screen_stdout(int fd, char *buf, size_t count){
+int64 screen_stdout(int fd, const char *buf, size_t count){
     if (count < PAGE_SIZE)
     {
         memcpy(screen_buff, buf, count);
@@ -119,7 +119,7 @@ int64 screen_stdout(int fd, char *buf, size_t count){
     return count;
 }
 
-int64 screen_stderror(int fd, char *buf, size_t count)
+int64 screen_stderror(int fd, const char *buf, size_t count)
 {
     for (int i = 0; i < count; i++)
     {

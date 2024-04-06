@@ -5,7 +5,6 @@
 #define BUFFER_SIZE 4096
 
 // the screen sruct for shell
-#pragma pack(8)
 typedef struct screen_buffer
 {
     // mutex visit
@@ -17,7 +16,6 @@ typedef struct screen_buffer
     int32_t head;
     int32_t tail;
 } screen_buffer_t;
-#pragma()
 // screen_buffer_t SCREEN;
 // the buffer is full
 int screen_buffer_full();
@@ -38,10 +36,10 @@ void screen_reflush();
 void screen_write(char *str);
 
 /* tmp screen write */
-int64 screen_stdout(int fd, char *buf, size_t count);
+int64 screen_stdout(int fd, const char *buf, size_t count);
 
 /* tmp screen write */
-int64 screen_stderror(int fd, char *buf, size_t count);
+int64 screen_stderror(int fd, const char *buf, size_t count);
 
 extern struct ring_buffer stdin_buf;
 extern struct ring_buffer stdout_buf;

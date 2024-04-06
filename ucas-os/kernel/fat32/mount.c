@@ -8,7 +8,6 @@ int fat32_mount(const char *special, const char *dir, const char *fstype, unsign
     char *buf = kmalloc(PAGE_SIZE);
     char path[strlen(dir) + 1];
     strcpy(path, dir);
-    uint32_t clus_num;
     inode_t cur_cwd;
     inode_t dir_ino;
     dentry_t *entry;

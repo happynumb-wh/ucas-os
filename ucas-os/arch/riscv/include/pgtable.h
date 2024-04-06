@@ -2,6 +2,7 @@
 #define PGTABLE_H
 
 #include <type.h>
+#include <asm.h>
 
 #define SATP_MODE_SV39 8
 #define SATP_MODE_SV48 9
@@ -16,6 +17,15 @@
 #define SATP_PPN_MASK ((1lu << SATP_ASID_SHIFT) - 1)
 
 #define PTE_NUM (1lu << 9)
+#define PAGE_SIZE 4096 // 4K
+
+#define BOOT_PAGE 1
+#define KERNEL_PAGE 0
+
+
+
+#define __page_aligned_bss	__attribute__((__section__(".bss..page_aligned"))) __attribute__((__aligned__(PAGE_SIZE)))
+#define __init  __attribute__((__section__(".init.text")))
 
 extern uint64_t _filesystem_start[];
 
@@ -66,9 +76,11 @@ static inline uint64_t get_pgdir()
 	return (satp & SATP_PPN_MASK) << NORMAL_PAGE_SHIFT;
 }
 
+extern uintptr_t kernel_pgd[PAGE_SIZE / RISCV_SZPTR];
 extern uintptr_t phyc_entry;
+extern uintptr_t _end[];
 
-#define PGDIR_PA (phyc_entry + 0x800000)  // use bootblock's page as PGDIR
+#define PGDIR_PA ((uintptr_t)kernel_pgd)  // use bootblock's page as PGDIR
 #define KERNEL_BASE 0xffffffc080200000
 
 /*
@@ -102,7 +114,6 @@ typedef uint64_t PTE;
 
 static inline uintptr_t kva2pa(uintptr_t kva)
 {
-    // TODO:
     /**
      * get the pa from kva 
      */
@@ -114,17 +125,17 @@ static inline uintptr_t kva2pa(uintptr_t kva)
 
 static inline uintptr_t pa2kva(uintptr_t pa)
 {
-    // TODO:
     /**
      * get pa from kva
      */
-    /* mask == 0xffffffc00000000 */    
+    /* mask == 0x0000003fffffffff */
+
+
     return (pa - phyc_entry) + KERNEL_BASE;
 }
 
 static inline uint64_t get_pa(PTE entry)
 {
-    // TODO:
     /**
      * get pa from PTE
      */
@@ -137,7 +148,6 @@ static inline uint64_t get_pa(PTE entry)
 /* Get/Set page frame number of the `entry` */
 static inline long get_pfn(PTE entry)
 {
-    // TODO:
     /**
      * get pfn
      */
@@ -148,7 +158,6 @@ static inline long get_pfn(PTE entry)
 
 static inline void set_pfn(PTE *entry, uint64_t pfn)
 {
-    // TODO:
     /* set pfn
      */
     *entry &= ((uint64_t)(~0) >> 54);
@@ -158,7 +167,6 @@ static inline void set_pfn(PTE *entry, uint64_t pfn)
 /* Get/Set attribute(s) of the `entry` */
 static inline long get_attribute(PTE entry)
 {
-    // TODO:
     /**
      * get flag
      */
@@ -168,7 +176,6 @@ static inline long get_attribute(PTE entry)
 }
 static inline void set_attribute(PTE *entry, uint64_t bits)
 {
-    // TODO:
     /**
      * set flag
      */
@@ -178,7 +185,6 @@ static inline void set_attribute(PTE *entry, uint64_t bits)
 
 static inline void clear_pgdir(uintptr_t pgdir_addr)
 {
-    // TODO:
     /**
      * clear page
      */
@@ -201,14 +207,14 @@ static inline PTE * get_PTE_of(uintptr_t va, uintptr_t pgdir_va){
     PTE *page_base;
     page_base = (PTE *)pgdir_va;
     // first null
-    if (page_base[vpn[2]] == NULL)
+    if (page_base[vpn[2]] == 0)
         return NULL;
     PTE *second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
     if (get_attribute(page_base[vpn[2]]) & node_flag)
         return &page_base[vpn[0]];
 
     // second null
-    if (second_page[vpn[1]] == NULL)
+    if (second_page[vpn[1]] == 0)
         return NULL;   
          
     PTE *third_page  = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT)); 
@@ -216,14 +222,13 @@ static inline PTE * get_PTE_of(uintptr_t va, uintptr_t pgdir_va){
     if (get_attribute(second_page[vpn[2]]) & node_flag)
         return &second_page[vpn[0]];    
 
-    if (third_page[vpn[0]] == NULL || (third_page[vpn[0]] & _PAGE_PRESENT) == 0)
+    if (third_page[vpn[0]] == 0 || (third_page[vpn[0]] & _PAGE_PRESENT) == 0)
         return NULL;    
     return &third_page[vpn[0]];    
 }
 
 static inline uintptr_t get_kva_of(uintptr_t va, uintptr_t pgdir_va)
 {
-    // TODO:
     /**
      * get kva from page
      */
@@ -236,25 +241,24 @@ static inline uintptr_t get_kva_of(uintptr_t va, uintptr_t pgdir_va)
     PTE *page_base;
     page_base = (PTE *)pgdir_va;
     /* first null */
-    if (page_base[vpn[2]] == NULL)
-        return NULL;
+    if (page_base[vpn[2]] == 0)
+        return 0;
     PTE *second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
     if (get_attribute(page_base[vpn[2]]) & node_flag)
         return pa2kva((get_pfn(page_base[vpn[2]]) << 30) | (va & ~(~((uint64_t)0) << 30)));;
     /* second null */
-    if (second_page[vpn[1]] == NULL)
-        return NULL;    
+    if (second_page[vpn[1]] == 0)
+        return 0;    
     PTE *third_page  = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT)); 
     if (get_attribute(second_page[vpn[1]]) & node_flag)
         return pa2kva((get_pfn(second_page[vpn[1]]) << LARGE_PAGE_SHIFT) | (va & ~(~((uint64_t)0) << LARGE_PAGE_SHIFT)));;    
     /* if null */
-    if (third_page[vpn[0]] == NULL)
-        return NULL;    
+    if (third_page[vpn[0]] == 0)
+        return 0;    
     return pa2kva((get_pfn(third_page[vpn[0]]) << NORMAL_PAGE_SHIFT) | (va & ~(~((uint64_t)0) << NORMAL_PAGE_SHIFT)));
 }
 
 static inline uintptr_t get_pfn_of(uintptr_t va, uintptr_t pgdir_va){
-    // TODO:
     /**
      * get table kva
      */
@@ -266,16 +270,16 @@ static inline uintptr_t get_pfn_of(uintptr_t va, uintptr_t pgdir_va){
     PTE *page_base;
     page_base = (PTE *)pgdir_va;
     // first null
-    if (page_base[vpn[2]] == NULL)
-        return NULL;
+    if (page_base[vpn[2]] == 0)
+        return 0;
     PTE *second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
     // second null
-    if (second_page[vpn[1]] == NULL)
-        return NULL;    
+    if (second_page[vpn[1]] == 0)
+        return 0;    
     PTE *third_page  = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT)); 
     /* third null */
-    if (third_page[vpn[0]] == NULL)
-        return NULL;    
+    if (third_page[vpn[0]] == 0)
+        return 0;    
     return pa2kva((get_pfn(third_page[vpn[0]]) << NORMAL_PAGE_SHIFT));    
 }
 

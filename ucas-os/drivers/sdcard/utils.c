@@ -1,7 +1,7 @@
-#include "type.h"
-#include "include/utils.h"
-#include "include/encoding.h"
-#include "os/string.h"
+#include <type.h>
+#include <encoding.h>
+#include <utils.h>
+#include <os/string.h>
 
 void set_bit(volatile uint32_t *bits, uint32_t mask, uint32_t value)
 {

@@ -23,11 +23,8 @@ uint64_t do_brk(uintptr_t ptr)
     }
     else if (ptr < current_running->edata) 
     {
-        // printk("the ptr: %lx less than the now edata: %lx\n", ptr, current_running->edata);
-        // return -EINVAL;
-        for (void *cur_page = ptr; cur_page < current_running->edata; cur_page += NORMAL_PAGE_SIZE){
-            if (get_kva_of(cur_page,current_running->pgdir) != NULL){
-                // printk("freepage:%lx\n", cur_page);
+        for (uintptr_t cur_page = ptr; cur_page < current_running->edata; cur_page += NORMAL_PAGE_SIZE){
+            if (get_kva_of(cur_page,current_running->pgdir) != 0){
                 free_page_helper(cur_page, current_running->pgdir);
                 local_flush_tlb_page(cur_page);
             }     
@@ -39,7 +36,6 @@ uint64_t do_brk(uintptr_t ptr)
         for (uintptr_t my_ptr = current_running->edata; my_ptr < ptr; my_ptr += NORMAL_PAGE_SIZE)
         {
             alloc_page_helper(my_ptr, current_running->pgdir, MAP_USER, _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC);
-            // local_flush_tlb_all();
             local_flush_tlb_page(my_ptr);
         }
         current_running->edata = ptr;

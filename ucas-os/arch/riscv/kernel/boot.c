@@ -3,18 +3,15 @@
 #include <asm.h>
 
 typedef void (*kernel_entry_t)(unsigned long);
-uintptr_t phyc_entry __attribute__((section(".data"))) = 0;
-uintptr_t pg_base __attribute__((section(".data")));
+uintptr_t phyc_entry  = 0;
 
-/********* setup memory mapping ***********/
-static uintptr_t alloc_page()
-{
-    pg_base += 0x1000;
-    return pg_base;
-}
+uintptr_t kernel_pgd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
+uintptr_t kernel_pmd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
+uintptr_t boot_pmd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
+
 
 // using 2MB large page
-static void map_page(uint64_t va, uint64_t pa, PTE *pgdir)
+static void __init map_page(int boot, uint64_t va, uint64_t pa, PTE *pgdir)
 {
     va &= VA_MASK;
     uint64_t vpn2 =
@@ -23,7 +20,8 @@ static void map_page(uint64_t va, uint64_t pa, PTE *pgdir)
                     (va >> (NORMAL_PAGE_SHIFT + PPN_BITS));
     if (pgdir[vpn2] == 0) {
         // alloc a new second-level page directory
-        set_pfn(&pgdir[vpn2], alloc_page() >> NORMAL_PAGE_SHIFT);
+        set_pfn(&pgdir[vpn2], boot == BOOT_PAGE ? (uintptr_t)boot_pmd >> NORMAL_PAGE_SHIFT :\
+                                 (uintptr_t)kernel_pmd >> NORMAL_PAGE_SHIFT);
         set_attribute(&pgdir[vpn2], _PAGE_PRESENT);
         clear_pgdir(get_pa(pgdir[vpn2]));
     }
@@ -34,7 +32,7 @@ static void map_page(uint64_t va, uint64_t pa, PTE *pgdir)
                         _PAGE_EXEC | _PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_GLOBAL);
 }
 
-static void enable_vm()
+static void __init enable_vm()
 {
     // write satp to enable paging
     set_satp(SATP_MODE_SV39, 0, PGDIR_PA >> NORMAL_PAGE_SHIFT);
@@ -45,7 +43,7 @@ static void enable_vm()
  * 0x0000_0000_0000_0000-0x0000_003f_ffff_ffff is for user mode
  * 0xffff_ffc0_0000_0000-0xffff_ffff_ffff_ffff is for kernel mode
  */
-static void setup_vm(uintptr_t entry)
+static void __init setup_vm(uintptr_t entry)
 {
     clear_pgdir(PGDIR_PA);
     // map kernel virtual address(kva) to kernel physical
@@ -54,12 +52,12 @@ static void setup_vm(uintptr_t entry)
     PTE *early_pgdir = (PTE *)PGDIR_PA;
     for (uint64_t kva = 0xffffffc080000000lu;
          kva < 0xffffffc090000000lu; kva += 0x200000lu) {
-        map_page(kva, kva2pa(kva), early_pgdir);
+        map_page(KERNEL_PAGE, kva, kva2pa(kva), early_pgdir);
     }
     // map boot address
-    for (uint64_t pa = phyc_entry; pa < phyc_entry + 0x1000000;
+    for (uint64_t pa = phyc_entry; pa < (uintptr_t)_end;
          pa += 0x200000lu) {
-        map_page(pa, pa, early_pgdir);
+        map_page(BOOT_PAGE, pa, pa, early_pgdir);
     }
     enable_vm();
 }
@@ -68,19 +66,18 @@ extern uintptr_t _start[];
 extern uintptr_t _boot[];
 
 /*********** start here **************/
-int boot_kernel(unsigned long mhartid, unsigned long fdt)
+int __init boot_kernel(unsigned long mhartid, unsigned long fdt)
 {
     if (mhartid == 0) {
         // Set the physic entry point
-        phyc_entry = _boot;
-        pg_base = PGDIR_PA;
-        setup_vm(_boot);
+        phyc_entry = (uintptr_t)_boot;
+        setup_vm((uintptr_t)_boot);
     } else {
         enable_vm();
     }
 
     /* go to kernel */
-    ((kernel_entry_t)pa2kva(_start))(mhartid);
+    ((kernel_entry_t)pa2kva((uintptr_t)_start))(mhartid);
 
     return 0;
 }

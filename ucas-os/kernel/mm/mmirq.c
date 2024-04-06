@@ -52,7 +52,7 @@ uint8 is_legal_addr(uint64_t fault_addr)
         return 1;
 
     // for stack
-    uint64_t sp = current_running->save_context->sp;
+    uint64_t __maybe_unused sp = current_running->save_context->sp;
     if (fault_addr & USER_STACK_HIGN)
         return 1;
     return 0;

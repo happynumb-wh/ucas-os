@@ -5,6 +5,7 @@
 #include <os/string.h>
 #include <os/mm.h>
 #include <os/dasics.h>
+#include <os/futex.h>
 #include <stdio.h>
 #include <assert.h>
 #include <sbi.h>
@@ -32,7 +33,7 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
     // TODO interrupt handler.
     // call corresponding handler by the value of `cause`
     current->save_context = regs;
-    current->kernel_sp = regs;
+    current->kernel_sp = (uint64_t)regs;
     update_utime();
     if ((cause & SCAUSE_IRQ_FLAG) == SCAUSE_IRQ_FLAG) 
     {
@@ -131,7 +132,6 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
 
 void init_exception()
 {
-    /* TODO: initialize irq_table and exc_table */
     /* note: handle_int, handle_syscall, handle_other, etc.*/
     for ( int i = 0; i < IRQC_COUNT; i++)
     {

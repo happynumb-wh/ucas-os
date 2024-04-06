@@ -1,8 +1,9 @@
-#include "type.h"
 #include "param.h"
 #include "memlayout.h"
-#include "riscv.h"
-#include "sbi.h"
+#include <type.h>
+#include <sbi.h>
+#include <riscv.h>
+#include <os/smp.h>
 
 //
 // the riscv Platform Level Interrupt Controller (PLIC).

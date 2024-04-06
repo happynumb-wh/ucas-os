@@ -31,6 +31,9 @@
 #include <type.h>
 #include <pgtable.h>
 #include "os/list.h"
+
+
+extern uintptr_t __BSS_END__[];
 /* used pagelist */
 static LIST_HEAD(usedPageList);
 /* shareMemKay */
@@ -43,7 +46,6 @@ static LIST_HEAD(shareMemKey);
 
 
 #define MEM_SIZE 32
-#define PAGE_SIZE 4096 // 4K
 #define MAP_KERNEL 1
 #define MAP_USER 2
 #define LOAD 0
@@ -54,13 +56,19 @@ static LIST_HEAD(shareMemKey);
 #define IN_SD_NO_W 3
 #define NO_W 4
 
+/* Rounding; only works for n = power of two */
+#define ROUND(a, n)     (((((uint64_t)(a))+(n)-1)) & ~((n)-1))
+
+#define ROUNDDOWN(a, n) (((uint64_t)(a)) & ~((n)-1))
+
+
 #define MAX_PAGE_NUM 12
 
 // Kernel mem will be 64 MB
-#define KERNEL_END  (KERNEL_BASE + 12 * MB)
+#define KERNEL_END  (KERNEL_BASE + 64 * MB)
 
 // Leave 32MB for the kernel bss_end
-#define INIT_KERNEL_STACK (KERNEL_BASE + 8 * MB)
+#define INIT_KERNEL_STACK ((uintptr_t)(__BSS_END__))
 #define INIT_KERNEL_STACK_MSTER (INIT_KERNEL_STACK + PAGE_SIZE)
 #define INIT_KERNEL_STACK_SLAVE (INIT_KERNEL_STACK_MSTER + PAGE_SIZE)
 
@@ -83,14 +91,12 @@ static LIST_HEAD(shareMemKey);
 extern uintptr_t boot_stack[PAGE_SIZE];
 
 /* the struct for per page */
-#pragma(8)
 typedef struct page_node{
     list_node_t list;
     uint64_t kva_begin; /* the va of the page */
     uint8_t share_num;  /* share page number */
     uint8_t is_share;   /* maybe for the shm_pg_get */
 }page_node_t;
-#pragma()
 
 typedef struct mm_struct
 {
@@ -120,10 +126,7 @@ typedef struct mm_struct
 /* manager free page */
 extern source_manager_t freePageManager;
 
-/* Rounding; only works for n = power of two */
-#define ROUND(a, n)     (((((uint64_t)(a))+(n)-1)) & ~((n)-1))
 
-#define ROUNDDOWN(a, n) (((uint64_t)(a)) & ~((n)-1))
 
 extern ptr_t memCurr;
 
@@ -142,7 +145,7 @@ extern void kfree_voilence(void * size);
 
 extern void share_pgtable(uintptr_t dest_pgdir, uintptr_t src_pgdir);
 /* alloc a new page */
-extern uintptr_t alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag);
+extern void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t flag);
 /* alloc a page pointer phyc */
 extern PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_t mode, uint64_t flag);
 

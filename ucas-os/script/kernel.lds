@@ -5,10 +5,16 @@ ENTRY(_start)
 SECTIONS
 {
   . = TEXT_START;
+
+  .init.text      :
+  {
+    *(.entry_function)
+  }
+
   .text           :
   {
     _ftext = . ;
-    *(.entry_function)
+    
     *(.text.unlikely .text.*_unlikely .text.unlikely.*)
     *(.text.exit .text.exit.*)
     *(.text.startup .text.startup.*)
@@ -16,6 +22,8 @@ SECTIONS
     *(.text .stub .text.* .gnu.linkonce.t.*)
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
+
+    _end = .;
   }
   PROVIDE (__etext = .);
   PROVIDE (_etext = .);
@@ -140,7 +148,7 @@ SECTIONS
 
   . = ALIGN(64 / 8);
   . = SEGMENT_START("ldata-segment", .);
-  . = ALIGN(64 / 8);
+  . = ALIGN(4096);
   __BSS_END__ = .;
     __global_pointer$ = MIN(__SDATA_BEGIN__ + 0x800,
                             MAX(__DATA_BEGIN__ + 0x800, __BSS_END__ - 0x800));

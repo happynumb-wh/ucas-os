@@ -3,8 +3,12 @@
 #include <os/irq.h>
 #include <type.h>
 #include <assert.h>
+#include <compile.h>
 uint64_t time_elapsed = 0;
 uint32_t time_base = 0;
+clock_t sys_time_master;
+clock_t sys_time_slave;
+
 uint64_t get_ticks()
 {
     __asm__ __volatile__(
@@ -76,7 +80,7 @@ void tick_to_timeval(time_t time, struct timeval *tv){
     }
 }
 
-uint64_t timeval_to_tick(struct timeval *tv)
+uint64_t timeval_to_tick(const struct timeval *tv)
 {
     uint64_t usec = tv->tv_usec, uticks = 0;
     for (uint8_t i = 0; i < MICRO; i++){
@@ -123,7 +127,7 @@ int do_setitimer(int which, const struct itimerval *new_value,
                  struct itimerval *old_value){
     assert(which == ITIMER_REAL);
     
-    time_t interval = timeval_to_tick(&new_value->it_interval);
+    time_t __maybe_unused  interval = timeval_to_tick(&new_value->it_interval);
     time_t value = timeval_to_tick(&new_value->it_value);
     if(value == 0){
         if (!list_empty(&current_running->itimer.list))

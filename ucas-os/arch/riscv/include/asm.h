@@ -32,4 +32,5 @@
 #define RISCV_SZPTR		8
 #define RISCV_LGPTR		3
 
+#define SZREG                   8
 #endif /* ASM_H */

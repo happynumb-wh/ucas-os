@@ -70,7 +70,7 @@ int do_pre_load(const char * filename, int how)
     strcpy(pre_elf[free_index].name, filename);
 
     // open the file
-    int fd = fat32_openat(AT_FDCWD, filename, O_RDONLY, NULL);
+    int fd = fat32_openat(AT_FDCWD, filename, O_RDONLY, 0);
     if (fd == -1)
     {
         prints("failed to open %s\n", filename);
@@ -94,7 +94,7 @@ void do_pre_elf_fat32(fd_num_t fd, excellent_load_t *exe_load)
     // ehdr
     Elf64_Ehdr ehdr;// = (Elf64_Ehdr *)kmalloc(sizeof(Elf64_Ehdr));
     fat32_lseek(fd, 0, SEEK_SET);
-    fat32_read_uncached(fd, &ehdr, sizeof(Elf64_Ehdr));      
+    fat32_read_uncached(fd, (char *)&ehdr, sizeof(Elf64_Ehdr));      
 
     Elf64_Phdr phdr;  
 
@@ -104,10 +104,9 @@ void do_pre_elf_fat32(fd_num_t fd, excellent_load_t *exe_load)
     Elf64_Off ptr_ph_table;
     Elf64_Half ph_entry_count;
     Elf64_Half ph_entry_size;
-    int i = 0;
     // check whether `binary` is a ELF file.
-    if (nfd->length < 4 || !is_elf_format(&ehdr)) {
-        return 0;  // return NULL when error!
+    if (nfd->length < 4 || !is_elf_format((uchar *)&ehdr)) {
+        return;  // return NULL when error!
     }
     ptr_ph_table   = ehdr.e_phoff;
     ph_entry_count = ehdr.e_phnum;
@@ -123,7 +122,7 @@ void do_pre_elf_fat32(fd_num_t fd, excellent_load_t *exe_load)
     // load the elf
     while (ph_entry_count--) {
         fat32_lseek(fd, ptr_ph_table, SEEK_SET);
-        fat32_read_uncached(fd, &phdr, sizeof(Elf64_Phdr));        
+        fat32_read_uncached(fd, (char *)&phdr, sizeof(Elf64_Phdr));        
         if (phdr.p_type == PT_INTERP)
         {
             exe_load->dynamic = 1;
@@ -179,7 +178,7 @@ void do_free_elf(excellent_load_t *exe_load)
     page_node_t * recycle_entry = NULL, *recycle_q;
     list_for_each_entry_safe(recycle_entry, recycle_q, &exe_load->list, list)
     {
-        kfree_voilence(recycle_entry->kva_begin);
+        kfree_voilence((void *)recycle_entry->kva_begin);
     }
 }
 
@@ -220,7 +219,7 @@ for_page_remain: ;
                 {
                     if (!(exe_load->phdr[index].p_flags & PF_W) /*&& !exe_load->dynamic*/)
                     {
-                        alloc_page_point_phyc(v_base, \ 
+                        alloc_page_point_phyc(v_base, \
                                               pgdir, \
                                               buffer_begin, \
                                               MAP_USER, \
@@ -234,7 +233,7 @@ for_page_remain: ;
                         bytes_of_page = alloc_page_helper(v_base, pgdir, MAP_USER, page_flag);
                         memcpy(
                             bytes_of_page,
-                            buffer_begin,
+                            (const void *)buffer_begin,
                             MIN(exe_load->phdr[index].p_filesz - i, NORMAL_PAGE_SIZE));
                     }
                 } else 
@@ -244,7 +243,7 @@ for_page_remain: ;
                     // memcpy
                     memcpy(
                         bytes_of_page,
-                        buffer_begin,
+                        (const void *)buffer_begin,
                         MIN(exe_load->phdr[index].p_filesz - i, page_remain)
                         );     
                     // we need a new method to fill in the blank    
@@ -308,6 +307,6 @@ uintptr_t fast_load_elf_execve(const char * filename, pcb_t *initpcb)
     // change to pcb_t
 
 
-
+    return 0;
 
 }

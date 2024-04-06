@@ -7,53 +7,41 @@
 #include <os/irq.h>
 #include <os/spinlock.h>
 #include <os/string.h>
+#include <os/futex.h>
 #include <fs/fat32.h>
+#include <compile.h>
 #include <stdio.h>
 #include <assert.h>
-#include <os/futex.h>
 #include <user_programs.h>
 
-#define PRIORIT_BASE 4
-#define TIME_BASE 1
 pcb_t pcb[NUM_MAX_TASK];
-pcb_t * volatile current_running_master;
-pcb_t * volatile current_running_slave;
+pcb_t * current_running_master;
+pcb_t * current_running_slave;
 const ptr_t pid0_stack_master = INIT_KERNEL_STACK_MSTER; 
-                        //     - \
-                        //    sizeof(regs_context_t) - \
-                        //    sizeof(switchto_context_t);//0x0e70;
-volatile pcb_t pid0_pcb_master = {
+const ptr_t pid0_stack_slave = INIT_KERNEL_STACK_MSTER; 
+
+
+pcb_t pid0_pcb_master = {
     .pid = 0,
-    .kernel_sp = (ptr_t)pid0_stack_master,
-    .user_sp = (ptr_t)pid0_stack_master,
+    .kernel_sp = INIT_KERNEL_STACK_MSTER,
+    .user_sp = INIT_KERNEL_STACK_MSTER,
     .pgdir = 0,
     .preempt_count = 0,
     .name = "pid0_master",
     .save_context = (regs_context_t *)(INIT_KERNEL_STACK_MSTER - sizeof(regs_context_t)),
     .switch_context = NULL, 
-                      //(switchto_context_t *)(INIT_KERNEL_STACK_MSTER - \
-                      //  sizeof(regs_context_t) - \
-                      //  sizeof(switchto_context_t)),
     .status   = TASK_READY,
     .type = KERNEL_PROCESS
 };  //master
-const ptr_t pid0_stack_slave = INIT_KERNEL_STACK_SLAVE; 
-                        //    - \
-                        //    sizeof(regs_context_t) - \
-                        //    sizeof(switchto_context_t);//0x0e70;
-volatile pcb_t pid0_pcb_slave = {
+pcb_t pid0_pcb_slave = {
     .pid = 0,
-    .kernel_sp = (ptr_t)pid0_stack_slave,
-    .user_sp = (ptr_t)pid0_stack_slave,
+    .kernel_sp = INIT_KERNEL_STACK_SLAVE,
+    .user_sp = INIT_KERNEL_STACK_SLAVE,
     .pgdir = 0,    
     .preempt_count = 0,
     .name = "pid0_slave",
     .save_context = NULL,
-                        //(regs_context_t *)(INIT_KERNEL_STACK_SLAVE - sizeof(regs_context_t)),
     .switch_context = NULL,
-                        // (switchto_context_t *)(INIT_KERNEL_STACK_SLAVE - \
-                        // sizeof(regs_context_t) - \
-                        // sizeof(switchto_context_t)),
     .status   = TASK_READY,
     .type = KERNEL_PROCESS
 };  //slave
@@ -65,20 +53,13 @@ LIST_HEAD(used_queue)
 source_manager_t available_queue;
 
 /* current running task PCB */
-// pcb_t * volatile current_running;
-// pcb_t * volatile prev_running;
 /* global process id */
 pid_t process_id = 1;
 
 
 void do_scheduler(void)
 {
-    // TODO schedule
-    
     uint64_t cpu_id = get_current_cpu_id();
-    pcb_t * current_running = cpu_id == 0 ? current_running_master : current_running_slave; 
-    // printk("entry name: %s, pid:%d, the sepc: 0x%lx, the ra: %lx, addr: %lx\n", current_running->name,\
-    //     current_running->pid, current_running->save_context->sepc,current_running->switch_context->regs[0], current_running);
     pcb_t * prev_running = current_running;  
     // if (list_empty(&ready_queue)) goto end;
     if (current_running->status == TASK_RUNNING && current_running->pid) {
@@ -95,7 +76,7 @@ void do_scheduler(void)
             current_running_master = current_running;
     }else{
         if (current_running->status != TASK_RUNNING) {
-            current_running = cpu_id == 0 ? &pid0_pcb_master : &pid0_pcb_slave;
+            current_running = (cpu_id == 0) ? &pid0_pcb_master : &pid0_pcb_slave;
             if(cpu_id == 0)
                 current_running_master = current_running;
             else
@@ -105,16 +86,14 @@ void do_scheduler(void)
     // release the lock
     if(get_pgdir() == kva2pa(current_running->pgdir)) ;
     else{
-        set_satp(SATP_MODE_SV39, current_running->pid, \ 
+        set_satp(SATP_MODE_SV39, current_running->pid, \
                 (uint64_t)kva2pa((current_running->pgdir)) >> 12);
         local_flush_tlb_all();
     }
     // save the id
     current_running->core_id = prev_running->core_id;
-    // TODO: switch_to current_running
     current_running->status = TASK_RUNNING;
-    // printk("next name: %s, pid:%d, the sepc: 0x%lx, the ra: %lx, addr: %lx\n", current_running->name,\
-    //     current_running->pid, current_running->save_context->sepc, current_running->switch_context->regs[0], current_running);
+
     if (current_running->execve)
     {
         current_running->execve = 0;
@@ -135,9 +114,6 @@ void do_priori(int priori, int pcb_id){
 
 void do_block(list_node_t *pcb_node, list_head *queue)
 {
-    // TODO: block the pcb task into the block queue
-    // printk("block\n");
-    
     list_add(pcb_node,queue);
     current_running->status = TASK_BLOCKED;
     do_scheduler();
@@ -145,7 +121,6 @@ void do_block(list_node_t *pcb_node, list_head *queue)
 
 void do_unblock(list_node_t *pcb_node)
 {
-    // TODO: unblock the `pcb` from the block queue
     list_del(pcb_node);
     list_entry(pcb_node , pcb_t, list)->status=TASK_READY;
     list_add(pcb_node, &ready_queue);
@@ -190,17 +165,15 @@ void do_ps(void)
  * @brief exec one process, used by the shell
  * @return succeed return the new pid failed return -1
  */
-pid_t do_exec(const char *file_name, int argc, char* argv[], spawn_mode_t mode){
+pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t mode){
     pcb_t *initpcb = get_free_pcb();
     
-
-
     // init the pcb 
     initpcb->pgdir = allocPage() - PAGE_SIZE;   
     initpcb->kernel_stack_top = allocPage();         //a kernel virtual addr, has been mapped
     initpcb->kernel_sp = initpcb->kernel_stack_top;
     initpcb->user_stack_top = USER_STACK_ADDR;       //a user virtual addr, not mapped
-    share_pgtable(initpcb->pgdir, pa2kva(PGDIR_PA));
+    share_pgtable(initpcb->pgdir, PGDIR_PA);
     /* map the user_stack, for NUM_MAX_USTACK*/
     for (int i = 0; i < NUM_MAX_USTACK; i++)
     {
@@ -244,8 +217,7 @@ pid_t do_exec(const char *file_name, int argc, char* argv[], spawn_mode_t mode){
                         argv, fixed_envp, file_name);
 
     // init all stack
-    init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, initpcb, \
-                    true_argc, argv);
+    init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, initpcb);
     // add to ready queue
     list_add(&initpcb->list, &ready_queue);
 
@@ -265,7 +237,7 @@ pid_t do_exec(const char *file_name, int argc, char* argv[], spawn_mode_t mode){
  * @return succeed never return, failed retuen -1
  * 
  */
-pid_t do_execve(const char* path, char* argv[], char *const envp[]){
+pid_t do_execve(const char* path, const char* argv[], const char * envp[]){
     // printk("enter exec\n");
     // printk("[execve] %s\n", path);
     pcb_t * initpcb =current_running;
@@ -275,7 +247,7 @@ pid_t do_execve(const char* path, char* argv[], char *const envp[]){
 
     initpcb->user_stack_top = USER_STACK_ADDR;       //a user virtual addr, not mapped
     initpcb->kernel_sp =initpcb->kernel_stack_top;
-    share_pgtable(initpcb->pgdir, pa2kva(PGDIR_PA));
+    share_pgtable(initpcb->pgdir, PGDIR_PA);
     
     /* map the user_stack */
     /* map the user_stack, for NUM_MAX_USTACK*/
@@ -314,12 +286,6 @@ pid_t do_execve(const char* path, char* argv[], char *const envp[]){
         return -1;
     }
 
-    // dynamic
-    // if (initpcb->exe_load->dynamic)
-    // {
-    //     entry_point = load_connector("libc.so", initpcb->pgdir);
-    // }
-
     int argc = (int)get_num_from_parm(argv);
 
     // copya all things on the user stack
@@ -329,7 +295,7 @@ pid_t do_execve(const char* path, char* argv[], char *const envp[]){
     uint64_t save_core_id = get_current_cpu_id();
     // initialize process
     init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, \
-                    initpcb, argc, argv);
+                    initpcb);
     initpcb->core_id = save_core_id;
 
     // add in the ready_queue
@@ -385,7 +351,6 @@ uint64_t do_wait4(pid_t pid, uint16_t *status, int32_t options){
             }  
         }
     }
-    // printk("[wait4] pid = %d wakeup after exit of %d, status = %d\n",current_running->pid,pid,*(int16_t *)status);
     return ret;   
 }
 
@@ -400,33 +365,27 @@ void do_exit(int32_t exit_status){
     
     pcb_t * exit_pcb;
     exit_pcb = current_running;
-    // printk("exit process pid = %d\n",current_running->pid);
-    pcb_t *wait_entry = NULL, *wait_q;
 
     /* exit status */
     current_running->exit_status = exit_status;
 
     if (current_running->clear_ctid) {
-        // if (get_kva_of(current_running->clear_ctid,current_running->pgdir) == NULL) alloc_page_helper(current_running->clear_ctid,current_running->pgdir,MAP_USER);
         *(int *)(current_running->clear_ctid) = 0;
-        do_futex(current_running->clear_ctid,FUTEX_WAKE,1,NULL,NULL,NULL);
+        do_futex(current_running->clear_ctid, FUTEX_WAKE, 1, NULL, NULL, 0);
     }
     
     if (current_running->mode == AUTO_CLEANUP_ON_EXIT) {
         /* free the wait */
         handle_exit_pcb(exit_pcb);
-        // printk("Succeed recycle %d page from %s\n", recycle_page_num, exit_pcb->name);
     } else if (current_running->type == USER_PROCESS && \
                current_running->mode == ENTER_ZOMBIE_ON_EXIT) {
         current_running->status = TASK_ZOMBIE;
         if (current_running->flag & SIGCHLD)
         {
             // current_running->exit_status = 0;
-            // printk("%s send signal to %s\n", current_running->name, current_running->parent.parent->name);
             send_signal(SIGCHLD, current_running->parent.parent);
         }        
     }
-    // prints("%s has exit normally, exit_status: %lx\n", current_running->name, exit_status);
     /* scheduler */
     do_scheduler();  
 }
@@ -455,7 +414,7 @@ pid_t do_clone(uint32_t flag, uint64_t stack, pid_t ptid, void *tls, pid_t ctid)
     {   
         initpcb->pgdir = allocPage() - PAGE_SIZE;
         /* copy kernel */
-        share_pgtable(initpcb->pgdir, pa2kva(PGDIR_PA));         
+        share_pgtable(initpcb->pgdir, PGDIR_PA);         
     } 
     
     initpcb->kernel_stack_top = allocPage();         //a kernel virtual addr, has been mapped
@@ -479,11 +438,11 @@ pid_t do_clone(uint32_t flag, uint64_t stack, pid_t ptid, void *tls, pid_t ctid)
     // #ifndef k210
         uintptr_t ku_base;
         for (uintptr_t u_base = initpcb->user_stack_top - NORMAL_PAGE_SIZE; \
-                (ku_base = get_kva_of(u_base, current_running->pgdir)) != NULL; \
+                (ku_base = get_kva_of(u_base, current_running->pgdir)) != 0; \
                 u_base -= NORMAL_PAGE_SIZE)
         {
             /* code */
-            uintptr_t cloneu_base = alloc_page_helper(u_base, \
+            uintptr_t cloneu_base = (uintptr_t)alloc_page_helper(u_base, \
                                                       initpcb->pgdir, \
                                                       MAP_USER, \
                                                       _PAGE_READ | _PAGE_WRITE
@@ -521,7 +480,6 @@ int do_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask){
 }
 
 int32_t do_kill(pid_t pid, int32_t sig){
-    // printk("[kill] try to kill pid %d with sig %d\n",pid,sig);
     uint8_t ret = 0;
     
     for (uint32_t i = 0; i < NUM_MAX_TASK; i++){
@@ -550,8 +508,10 @@ int32_t do_kill(pid_t pid, int32_t sig){
 
 
 int32_t do_tkill(int tid, int sig){
-    do_kill(tid, sig);
+    return do_kill(tid, sig);
 }
+
+
 int32_t do_tgkill(int tgid, int tid, int sig){
-    do_kill(tid, sig);
+    return do_kill(tid, sig);
 }

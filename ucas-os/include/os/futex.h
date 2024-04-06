@@ -86,17 +86,18 @@ struct robust_list_head {
 };
 
 typedef list_head futex_bucket_t;
-static spinlock_init (futex_lock);
+// static spinlock_init(futex_lock);
+extern struct spinlock futex_lock;
 
 extern futex_bucket_t futex_buckets[FUTEX_BUCKETS]; //HASH LIST
 extern futex_node_t futex_node[MAX_FUTEX_NUM];
 extern int futex_node_used[MAX_FUTEX_NUM];
 extern void check_futex_timeout();
 extern void init_system_futex();
-extern int do_futex_wait(int *val_addr, int val,struct timespec *timeout);
+extern int do_futex_wait(int *val_addr, int val, const struct timespec *timeout);
 extern int do_futex_wakeup(int *val_addr, int num_wakeup);
 extern int do_futex_requeue(int *uaddr, int* uaddr2, int num);
-extern int do_futex(int *uaddr, int futex_op, int val, const struct timespec *timeout,/* or: uint32_t val2 */int *uaddr2, int val3);
+extern int do_futex(uint32_t *uaddr, int futex_op, int val, const struct timespec *timeout,/* or: uint32_t val2 */int *uaddr2, int val3);
 extern long do_get_robust_list(int pid, struct robust_list_head **head_ptr, size_t *len_ptr);
 extern long do_set_robust_list(struct robust_list_head *head, size_t len);
 #endif /* FUTEX_H */

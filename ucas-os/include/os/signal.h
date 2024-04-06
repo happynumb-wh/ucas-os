@@ -1,6 +1,5 @@
 #ifndef INCLUDE_SCHED_SIGNAL_H
 #define INCLUDE_SCHED_SIGNAL_H
-#include <os/sched.h>
 #include <os/time.h>
 #include <type.h>
 
@@ -144,7 +143,7 @@ typedef struct sigset_t
 typedef struct ucontext
 {
 	unsigned long uc_flags;
-	struct ucontext_t *uc_link;
+	struct ucontext *uc_link;
 	stack_t uc_stack;
 	usigset_t uc_sigmask;
 	mcontext_t uc_mcontext;
@@ -164,4 +163,10 @@ uintptr_t set_ucontext();
 void init_sig_table();
 sigaction_t *alloc_sig_table();
 void free_sig_table(sigaction_t* sig_in);
+
+typedef struct regs_context regs_context_t;
+typedef struct switchto_context switchto_context_t;
+
+extern void set_signal_trampoline(regs_context_t *, switchto_context_t *);
+extern void exit_signal_trampoline();
 #endif

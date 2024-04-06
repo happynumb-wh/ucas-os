@@ -1,6 +1,7 @@
 #include <os/time.h>
 #include <os/mm.h>
 #include <os/irq.h>
+#include <os/smp.h>
 #include <stdio.h>
 #include <screen.h>
 #include <type.h>

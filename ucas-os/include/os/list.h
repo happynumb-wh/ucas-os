@@ -38,7 +38,6 @@
 #define INCLUDE_LIST_H_
 
 #include <type.h>	
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define LIST_HEAD(name) struct list_node name = {&(name), &(name)};
 
 
