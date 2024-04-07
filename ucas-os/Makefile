@@ -2,20 +2,30 @@ include common.mk
 # DIR
 ARCH 		   ?= riscv
 
-DIR_ARCH        = ./arch/$(ARCH)
-DIR_BUILD       = ./build
-DIR_DRIVERS     = ./drivers
-DIR_INIT        = ./init
-DIR_KERNEL      = ./kernel
-DIR_LIBS        = ./libs
-DIR_TINYLIBC    = ./tiny_libc
-DIR_TEST        = ./test
-DIR_TOOLS		= ./tools
-DIR_SCRIPT		= ./script
+DIR_ARCH         = ./arch/$(ARCH)
+DIR_BUILD		 = ./build
+DIR_DRIVERS      = ./drivers
+DIR_INIT         = ./init
+DIR_KERNEL       = ./kernel
+DIR_LIBS         = ./libs
+DIR_TINYLIBC     = ./tiny_libc
+DIR_TEST         = ./test
+DIR_TOOLS		 = ./tools
+DIR_SCRIPT		 = ./script
 
 # -----------------------------------------------------------------------
 # Build/Debug Flags and Variables
 # -----------------------------------------------------------------------
+# Kernel source file
+KERNEL_SRC		= $(wildcard $(DIR_ARCH)/*/*.c) $(wildcard $(DIR_ARCH)/*/*.S) \
+				  $(wildcard $(DIR_DRIVERS)/*/*.c) \
+				  $(wildcard $(DIR_INIT)/*.c) \
+				  $(wildcard $(DIR_KERNEL)/*/*.c) $(USER_PROG) \
+				  $(wildcard $(DIR_LIBS)/*.c)
+
+KERNEL_OBJS		= $(addprefix , \
+ 						$(addsuffix .o, $(basename $(KERNEL_SRC))))
+
 
 KERNEL_INCLUDE  = -I$(DIR_ARCH)/include -Iinclude -Idrivers/screen -Idrivers/sdcard/include 
 KERNEL_CFLAGS   = $(CFLAGS) $(KERNEL_INCLUDE) -Wl,--defsym=TEXT_START=$(KERNEL_ENTRYPOINT) -T $(DIR_SCRIPT)/kernel.lds
@@ -28,17 +38,6 @@ USER_LDFLAGS    = -L$(DIR_BUILD) -ltinyc
 # -----------------------------------------------------------------------
 # UCAS-OS Kernel target
 # -----------------------------------------------------------------------
-MODULE_ARCH		= $(DIR_ARCH)/build/*.o
-MODULE_DRIVERS	= $(DIR_DRIVERS)/build/*.o
-MODULE_INIT		= $(DIR_INIT)/build/*.o
-MODULE_KERNEL	= $(DIR_KERNEL)/build/*.o
-MODULE_LIBS		= $(DIR_LIBS)/build/*.o
-
-MODULES 		= $(DIR_ARCH)/build/*.o \
-					$(DIR_DRIVERS)/build/*.o \
-					$(DIR_INIT)/build/*.o \
-					$(DIR_KERNEL)/build/*.o \
-					$(DIR_LIBS)/build/*.o
 # Final target
 ELF_KERNEL  = $(DIR_BUILD)/kernel
 ELF_IMAGE   = $(DIR_BUILD)/image
@@ -49,13 +48,13 @@ KERNEL_BIN	= $(DIR_BUILD)/kernel.bin
 # UCAS-OS User Source Files
 # -----------------------------------------------------------------------
 SRC_CRT0    = $(wildcard $(DIR_TINYLIBC)/crt0/*.S)
-OBJ_CRT0    = $(DIR_BUILD)/$(notdir $(SRC_CRT0:.S=.o))
+OBJ_CRT0    =  $(addprefix $(DIR_BUILD)/, \
+ 						$(addsuffix .o, $(basename $(notdir $(SRC_CRT0)))))
 
 SRC_LIBC    = $(wildcard ./tiny_libc/*.c)
 OBJ_LIBC    = $(patsubst %.c, %.o, $(foreach file, $(SRC_LIBC), $(DIR_BUILD)/$(notdir $(file))))
 LIB_TINYC   = $(DIR_BUILD)/libtinyc.a
 
-SRC_SHELL	= $(DIR_TEST)/shell.c
 SRC_USER    = $(wildcard $(DIR_TEST)/*.c)
 ELF_USER    = $(patsubst %.c, %, $(foreach file, $(SRC_USER), $(DIR_BUILD)/$(notdir $(file))))
 
@@ -77,22 +76,24 @@ ELF_GENERATEMAPPING = $(DIR_BUILD)/$(notdir $(SRC_GENERATEMAPPING:.c=))
 # Top-level Rules
 # -----------------------------------------------------------------------
 
+# 
+
+
 all: dirs tools elf kbin asm
 
 dirs:
 	@mkdir -p $(DIR_BUILD)
 
+
 clean:
 	rm -rf $(DIR_BUILD)
-	$(MAKE) -C $(DIR_ARCH) clean
-	$(MAKE) -C $(DIR_DRIVERS) clean
-	$(MAKE) -C $(DIR_INIT) clean
-	$(MAKE) -C $(DIR_KERNEL) clean
-	$(MAKE) -C $(DIR_LIBS) clean
+	rm -rf $(KERNEL_OBJS)
+	rm -rf $(KERNEL_DEPS)
+
 	rm kernel/user_programs.c
 	rm include/user_programs.h
 
-asm:  $(ELF_KERNEL) $(ELF_USER) #$(ELF_BOOT)
+asm:  $(ELF_KERNEL) $(ELF_USER)
 	@for elffile in $^; do $(OBJDUMP) -d $$elffile > $(notdir $$elffile).txt; done
 	
 	
@@ -115,7 +116,7 @@ debug-smp:
 minicom:
 	sudo $(MINICOM) -D $(TTYUSB1)
 
-.PHONY: dirs clean asm gdb run debug minicom
+.PHONY: dirs vmk_arch clean asm gdb run debug minicom 
 
 
 # -----------------------------------------------------------------------
@@ -137,30 +138,31 @@ $(USER_PROG): $(ELF_USER) $(ELF_ELF2CHAR) $(ELF_GENERATEMAPPING)
 	mv user_programs.h include/
 	mv user_programs.c kernel/
 
-$(MODULE_ARCH):
-	$(MAKE) -C $(DIR_ARCH)
+$(KERNEL_OBJS) : $(USER_PROG)
 
-$(MODULE_DRIVERS):
-	$(MAKE) -C $(DIR_DRIVERS)
 
-$(MODULE_INIT):
-	$(MAKE) -C $(DIR_INIT)
+%.o: %.c
+	@echo CC +  $<
+	@$(CC) $(KERNEL_CFLAGS) -c $< -o $@	
 
-$(MODULE_KERNEL): $(USER_PROG)
-	$(MAKE) -C $(DIR_KERNEL)
+%.o: %.S
+	@echo CC +  $<
+	@$(CC) $(KERNEL_CFLAGS) -c $< -o $@	
 
-$(MODULE_LIBS):
-	$(MAKE) -C $(DIR_LIBS)
+# Dependencies
+KERNEL_DEPS = $(addprefix , \
+						$(addsuffix .d, $(basename $(KERNEL_SRC))))
+-include $(KERNEL_DEPS)
 
-$(ELF_KERNEL): $(MODULES)
+$(ELF_KERNEL): $(KERNEL_OBJS)
 	@echo LD + $@
-	@$(CC) $(KERNEL_CFLAGS) -o $@ $(MODULES) 
+	@$(CC) $(KERNEL_CFLAGS) $^ -o $@ 
 
 $(OBJ_CRT0): $(SRC_CRT0)
 	@echo CC + $<
 	@$(CC) $(USER_CFLAGS) -I$(DIR_ARCH)/include -c $< -o $@
 
-$(LIB_TINYC): $(OBJ_LIBC)
+$(LIB_TINYC): $(OBJ_LIBC) $(OBJ_CRT0)
 	@echo AR + $@
 	@$(AR) rcs $@ $^
 
@@ -169,9 +171,15 @@ $(DIR_BUILD)/%.o: $(DIR_TINYLIBC)/%.c
 	@$(CC) $(USER_CFLAGS) -c $< -o $@
 
 
-$(DIR_BUILD)/%: $(DIR_TEST)/%.c $(OBJ_CRT0) $(LIB_TINYC)
+$(DIR_BUILD)/%: $(DIR_TEST)/%.c $(LIB_TINYC)
 	@echo CC + $<
-	@$(CC) $(USER_CFLAGS) -o $@ $(OBJ_CRT0) $< $(USER_LDFLAGS) -Wl,--defsym=TEXT_START=$(USER_ENTRYPOINT) -T $(DIR_SCRIPT)/user.lds
+	@$(CC) $(USER_CFLAGS) -o $@ $< $(USER_LDFLAGS) -Wl,--defsym=TEXT_START=$(USER_ENTRYPOINT) -T $(DIR_SCRIPT)/user.lds
+
+# Dependencies
+USER_DEPS = $(addprefix ./build/, \
+						$(addsuffix .d, $(basename $(notdir $(SRC_CRT0) $(SRC_USER)))))
+-include $(USER_DEPS)
+
 
 elf: $(ELF_KERNEL) $(LIB_TINYC) $(ELF_USER)
 
@@ -190,3 +198,4 @@ $(ELF_ELF2CHAR): $(SRC_ELF2CHAR)
 $(ELF_GENERATEMAPPING): $(SRC_GENERATEMAPPING)
 	@echo HOST_CC + $<
 	@$(HOST_CC) $(SRC_GENERATEMAPPING) -o $@ -ggdb -Wall
+
