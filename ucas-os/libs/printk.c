@@ -2,6 +2,7 @@
 #include <screen.h>
 #include <stdarg.h>
 #include <os/smp.h>
+#include <os/irq.h>
 #include <assert.h>
 #define PRINTK_BUFFER 0x1000UL
 
@@ -205,7 +206,7 @@ static int _vprint(const char* fmt, va_list _va,
 
     buff[ret] = '\0';
 
-    // disable_preempt();
+    disable_preempt();
     output(buff);
     // for (int i = 0; i < ret; ++i) {
         // if (buff[i] == '\n') {
@@ -216,7 +217,7 @@ static int _vprint(const char* fmt, va_list _va,
         //     // current_running->cursor_x++;
         // }
     // }
-    // enable_preempt();
+    enable_preempt();
 
     return ret;
 }

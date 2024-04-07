@@ -283,6 +283,7 @@ int main(unsigned long mhartid)
     sbi_set_timer(get_ticks() + 200);
     // open float
     /* open interrupt */
+    enable_preempt();
     enable_interrupt();
  
     while (1) {    
