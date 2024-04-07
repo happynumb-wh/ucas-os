@@ -11,3 +11,5 @@ copy.sh
 img
 *.o
 *.d
+
+!kernel/logo.txt

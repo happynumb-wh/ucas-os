@@ -1,11 +1,12 @@
 #include <common.h>
 #include <screen.h>
 #include <stdarg.h>
-#include <os/sched.h>
 #include <os/smp.h>
-#include <os/irq.h>
 #include <assert.h>
-#include <sbi.h>
+#define PRINTK_BUFFER 0x1000UL
+
+char printk_buffer[PRINTK_BUFFER];
+
 static unsigned int mini_strlen(const char *s)
 {
     if(s == 0){
@@ -190,20 +191,21 @@ end:
 }
 
 static int _vprint(const char* fmt, va_list _va,
-                   void (*output)(char*))
+                   void (*output)(const char*))
 {
     
     va_list va;
     va_copy(va, _va);
 
     int ret;
-    char buff[256];
+    // char buff[256];
+    char * buff = printk_buffer;
 
-    ret = mini_vsnprintf(buff, 256, fmt, va);
+    ret = mini_vsnprintf(buff, PRINTK_BUFFER, fmt, va);
 
     buff[ret] = '\0';
 
-    disable_preempt();
+    // disable_preempt();
     output(buff);
     // for (int i = 0; i < ret; ++i) {
         // if (buff[i] == '\n') {
@@ -214,7 +216,7 @@ static int _vprint(const char* fmt, va_list _va,
         //     // current_running->cursor_x++;
         // }
     // }
-    enable_preempt();
+    // enable_preempt();
 
     return ret;
 }
@@ -254,6 +256,6 @@ int prints(const char *fmt, ...)
 }
 
 int slog(const char *a){
-    sbi_console_putstr(a);
+    port_write(a);
     return 0;
 }

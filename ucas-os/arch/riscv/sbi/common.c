@@ -7,7 +7,7 @@ void port_write_ch(char ch)
     sbi_console_putchar((int)ch);
 }
 
-void port_write(char *str)
+void port_write(const char *str)
 {
     sbi_console_putstr(str);
 }

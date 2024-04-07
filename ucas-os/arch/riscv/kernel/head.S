@@ -48,3 +48,14 @@ _filesystem_start:
 .incbin "../../../img/rootfs.img"
 _filesystem_end:
 
+#ifdef PRINT_LOG
+
+.section .data
+.align 8
+.global _logo_start, _log_end
+
+_logo_start:
+.incbin "../../../kernel/logo.txt"
+_logo_end:
+
+#endif

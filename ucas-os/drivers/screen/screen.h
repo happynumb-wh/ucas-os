@@ -33,7 +33,7 @@ void screen_write_ch(char ch);
 void screen_reflush();
 
 /* screen write string */
-void screen_write(char *str);
+void screen_write(const char *str);
 
 /* tmp screen write */
 int64 screen_stdout(int fd, const char *buf, size_t count);

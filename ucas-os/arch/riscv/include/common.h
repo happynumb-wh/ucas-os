@@ -51,6 +51,6 @@ void port_write_ch(char ch);
 
 // enter a message into seraial port
 // use sbi printstr function
-void port_write(char *buf);
+void port_write(const char *buf);
 
 #endif

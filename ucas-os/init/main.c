@@ -11,6 +11,7 @@
 #include <os/socket.h>
 #include <os/smp.h>
 #include <os/io.h>
+#include <os/elf.h>
 #include <fs/poll.h>
 #include <fs/pipe.h>
 #include <pgtable.h>
@@ -20,7 +21,8 @@
 #include <screen.h>
 #include <common.h>
 #include <assert.h>
-#include <os/elf.h>
+#include <logo.h>
+
 
 spinlock_init(cpu);
 
@@ -215,50 +217,55 @@ static void init_syscall(void)
 }
 
 static void setup_first_core(){
-        printk("> [INIT] First core enter kernel\n\r");
-        // init kernel lock
-        // init_kernel_lock();
 
-        // init mem
-        uint32_t free_page_num = init_mem();
-        printk("> [INIT] %d Mem initialization succeeded.\n\r", free_page_num); 
-        
-        // init fd_table
-        init_fd_table();
-        init_sig_table();
-        printk("> [INIT] fd and sig table initialization succeeded.\n\r");
-        // init shell
-        pid_t shell_pid =  init_shell();
-        printk("> [INIT] shell initialization succeeded, pid: %ld.\n\r", shell_pid);
+#ifdef PRINT_LOG
+    print_logo();
+#endif
+
+    printk("> [INIT] First core enter kernel\n\r");
+    // init kernel lock
+    // init_kernel_lock();
+
+    // init mem
+    uint32_t free_page_num = init_mem();
+    printk("> [INIT] %d Mem initialization succeeded.\n\r", free_page_num); 
+    
+    // init fd_table
+    init_fd_table();
+    init_sig_table();
+    printk("> [INIT] fd and sig table initialization succeeded.\n\r");
+    // init shell
+    pid_t shell_pid =  init_shell();
+    printk("> [INIT] shell initialization succeeded, pid: %ld.\n\r", shell_pid);
 
 
-        ((uintptr_t *)(PGDIR_PA))[1] = 0;
-        ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = 0;
+    ((uintptr_t *)(PGDIR_PA))[1] = 0;
+    ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = 0;
 
-        pid0_pcb_master.core_id = 0;
+    pid0_pcb_master.core_id = 0;
 
-        time_base = TIME_BASE;//sbi_read_fdt(TIMEBASE);
+    time_base = TIME_BASE;//sbi_read_fdt(TIMEBASE);
 
-        binit();
-        printk("> [INIT] bio cache initialization succeeded.\n\r"); 
+    binit();
+    printk("> [INIT] bio cache initialization succeeded.\n\r"); 
 
-        fat32_init();
-        printk("> [INIT] FAT32 init succeeded.\n\r");
-        // init interrupt (^_^)
-        init_exception();
-        printk("> [INIT] Interrupt processing initialization succeeded.\n\r");   
-        // init system call table (0_0)
-        init_syscall();
-        printk("> [INIT] System call initialized successfully.\n\r");
-        // init screen (QAQ)
-        init_screen();
-        printk("> [INIT] SCREEN initialization succeeded.\n\r");
-        // init futex
-        init_system_futex();
-        printk("> [INIT] System_futex initialization succeeded.\n\r");
-        // init socket
-        // init_socket();
-        // printk("> [INIT] Socket initialization succeeded.\n\r");
+    fat32_init();
+    printk("> [INIT] FAT32 init succeeded.\n\r");
+    // init interrupt (^_^)
+    init_exception();
+    printk("> [INIT] Interrupt processing initialization succeeded.\n\r");   
+    // init system call table (0_0)
+    init_syscall();
+    printk("> [INIT] System call initialized successfully.\n\r");
+    // init screen (QAQ)
+    init_screen();
+    printk("> [INIT] SCREEN initialization succeeded.\n\r");
+    // init futex
+    init_system_futex();
+    printk("> [INIT] System_futex initialization succeeded.\n\r");
+    // init socket
+    // init_socket();
+    // printk("> [INIT] Socket initialization succeeded.\n\r");
 }
 
 // The beginning of everything >_< ~~~~~~~~~~~~~~

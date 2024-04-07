@@ -61,7 +61,7 @@ void screen_reflush(){
 }
 
 // screen write string
-void screen_write(char *str){
+void screen_write(const char *str){
     // get length
     uint32_t length = strlen(str);
     // for (int i = 0; i < length; i++)

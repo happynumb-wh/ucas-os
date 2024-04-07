@@ -39,8 +39,6 @@ void init_pcb_stack(
     
     memset(pt_regs, 0, sizeof(regs_context_t));
     
-
-
     pcb->kernel_sp -= (sizeof(regs_context_t) + sizeof(switchto_context_t));
     
     // switch pointer
