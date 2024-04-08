@@ -23,7 +23,9 @@ typedef struct {
   } a_un;
 } Elf64_auxv_t;
 
-#define LOAD_BUFFER 0xffffffc051000000
+extern uint64_t kload_buffer;
+
+#define LOAD_BUFFER (kload_buffer)
 
 #define AUX_CNT 38
 

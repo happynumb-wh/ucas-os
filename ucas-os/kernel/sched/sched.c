@@ -202,9 +202,10 @@ pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t 
     ptr_t entry_point = load_process_memory(file_name, initpcb);
 
 
-    if (entry_point == 0)
+    if ((int64_t)entry_point <= 0)
     {
         printk("[Error] load %s to memory false\n", file_name);
+        recycle_pcb_default(initpcb);
         return -1;
     }
 
@@ -280,9 +281,10 @@ pid_t do_execve(const char* path, const char* argv[], const char * envp[]){
     // load process into memory
     ptr_t entry_point = load_process_memory(path, initpcb);
 
-    if (entry_point == 0)
+    if (entry_point <= 0)
     {
-        printk("[Error] load %s to memory false]\n", path);
+        printk("[Error] load %s to memory false\n", path);
+        recycle_pcb_default(initpcb);
         return -1;
     }
 

@@ -298,6 +298,7 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
 
     Elf64_Shdr *_sec_text = NULL;
     Elf64_Shdr *_ulib_text = NULL;  
+    Elf64_Shdr *_ufreelib_text = NULL;
 
     char * secstrs;
     // read all the file into memory
@@ -428,6 +429,8 @@ page_remain_k210: ;
         ptr_ph_table += ph_entry_size;
     }
 
+    memset(mm, 0, sizeof(mm_struct_t));
+
     secstrs = (char *)(_shdr[_ehdr->e_shstrndx].sh_offset + (uint64_t)__load_buff);
     // now, file the data depend on the section ".text" and ".ulibtext" section
     for (int j = 0; j < _ehdr->e_shnum; j++)
@@ -440,18 +443,29 @@ page_remain_k210: ;
                 _ulib_text = &_shdr[j];
                 mm->ulib_sec_exist = 1;
                 mm->ulibtext_start = _ulib_text->sh_addr;
-                mm->ulibtext_end = _ulib_text->sh_addr + _ulib_text->sh_addr;
+                mm->ulibtext_end = _ulib_text->sh_addr + _ulib_text->sh_size;
             }
                 
-            else if (!_sec_text && \
+            if (!_sec_text && \
                     !strcmp(secstrs + _shdr[j].sh_name, ".text"))
             {
                 _sec_text =  &_shdr[j];
                 mm->text_start = _sec_text->sh_addr;
                 mm->text_end   = _sec_text->sh_addr + _sec_text->sh_size;
             }  
+
+            if (!_ufreelib_text && \
+                    !strcmp(secstrs + _shdr[j].sh_name, ".ufreezonetext"))
+            {
+                _ufreelib_text = &_shdr[j];
+                mm->free_sec_exit = 1;
+                mm->ulibfreetext_start = _ufreelib_text->sh_addr;
+                mm->ulibfreetext_end   = _ufreelib_text->sh_addr + _ufreelib_text->sh_size;
+            }
+
         }
-        if (_ulib_text && _sec_text)
+
+        if (_ulib_text && _sec_text && _ufreelib_text)
             break;
     }
     

@@ -43,12 +43,12 @@ char unicode2char(uint16_t unich)
 {
     return (unich >= 65 && unich <= 90)? unich - 65 + 'A' :
            (unich >= 48 && unich <= 57)? unich - 48 + '0' :
-        (unich >= 97 && unich <= 122)? unich - 97 + 'a' :
-        (unich == 95)? '_' : 
-        (unich == 46)? '.':
-        (unich == 0x20)? ' ':
-        (unich == 45)? '-':
-        0;  
+            (unich >= 97 && unich <= 122)? unich - 97 + 'a' :
+            (unich == 95)? '_' : 
+            (unich == 46)? '.':
+            (unich == 0x20)? ' ':
+            (unich == 45)? '-':
+            0;  
 }
 
 uint16_t char2unicode(char ch)

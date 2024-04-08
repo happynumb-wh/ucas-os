@@ -156,7 +156,7 @@ typedef struct short_name_entry{
     uint16_t    modity_date;
     uint16_t    low_start_clus;
     uint32_t    file_size;
-}short_name_entry_t;
+} __attribute__((packed)) short_name_entry_t;
 typedef short_name_entry_t dentry_t;
 
 
@@ -174,7 +174,7 @@ typedef struct long_name_entry
     uint16_t name2[LONG_FILENAME2];
     uint16_t start_clus;
     uint16_t name3[LONG_FILENAME3];
-}long_name_entry_t;
+}__attribute__((packed)) long_name_entry_t ;
 
 extern fat_t fat;
 struct stat {

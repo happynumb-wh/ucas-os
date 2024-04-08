@@ -15,6 +15,8 @@ source_manager_t freePageManager;
 
 uintptr_t boot_stack[PAGE_SIZE];
 
+// for fat32_load_elf
+uint64_t kload_buffer;
 
 uint64_t krand()
 {
@@ -27,6 +29,7 @@ uint64_t krand()
 // init mem
 uint32_t init_mem(){
     pageRecyc = (page_node_t *)kmalloc(sizeof(page_node_t) * NUM_REC + PAGE_SIZE * 2);
+    kload_buffer = (uint64_t)kmalloc(MB * 4);
     uint64_t memBegin = memCurr;
     // init list
     init_list(&freePageManager.free_source_list);

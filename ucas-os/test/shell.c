@@ -29,6 +29,14 @@ int main(void)
     printf("------------------- COMMAND -------------------\n");
     printf("> root@wh: ");
 
+    // char *rwx_argv[] = {
+    //     "dasics-test-rwx",
+    //     "-dasics",
+    //     (void *)0
+    // };
+
+    // sys_exec(rwx_argv[0], 2, rwx_argv);
+
     while (1)
     {
         int command = 0;

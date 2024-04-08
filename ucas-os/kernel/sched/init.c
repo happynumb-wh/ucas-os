@@ -141,16 +141,36 @@ uintptr_t load_process_memory(const char * path, pcb_t * initpcb)
 
     int elf_id = get_file_from_kernel(path);
 
-    if (elf_id == -1) return 0;
-    ElfFile * elf = &elf_files[elf_id];
+    ptr_t entry_point = 0;
 
-    ptr_t entry_point = load_elf(
+    if (elf_id == -1)
+    {
+        int fd;
+        if((fd = fat32_openat(AT_FDCWD, path, O_RDONLY, 0)) <= 0) {
+            printk("failed to open %s\n", path);
+            return -ENOENT;
+        }
+
+
+
+        entry_point = fat32_load_elf(         fd, 
+                                    initpcb->pgdir, 
+                                        &length,
+                                        &dynamic,
+                                        initpcb
+                                    ); 
+    } else {        
+        ElfFile * elf = &elf_files[elf_id];
+
+        entry_point = load_elf(
                                 elf, \
                                 initpcb->pgdir, \
                                 &length,
                                 initpcb,
                                 &dynamic
-    );
+                            );        
+    }
+
 
     if(entry_point == 0)
         return -ENOEXEC;
