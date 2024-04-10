@@ -212,6 +212,7 @@ static void init_syscall(void)
     syscall[SYS_sendfile]            = (long int (*)())&fat32_sendfile;
     syscall[SYS_pselect6]            = (long int (*)())&do_pselect6;
     syscall[SYS_setitimer]           = (long int (*)())&do_setitimer;
+    syscall[SYS_getrandom]           = (long int (*)())&do_getrandom;
     syscall[SYS_msync]               = (long int (*)())&fat32_msync;
     syscall[SYS_renameat2]           = (long int (*)())&fat32_renameat2;
 }

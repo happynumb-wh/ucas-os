@@ -1,4 +1,4 @@
-#include <os/dasics.h>
+#include <os/kdasics.h>
 #include <context.h>
 #include <stdio.h>
 
@@ -37,14 +37,3 @@ void handle_dasics_store_fault(regs_context_t *regs, uint64_t stval, uint64_t ca
     regs->sepc += 4;     
     return;
 }
-
-
-
-
-
-
-
-
-
-
-

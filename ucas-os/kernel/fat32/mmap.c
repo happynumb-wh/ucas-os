@@ -1,34 +1,94 @@
 #include <fs/fat32.h>
 #include <os/sched.h>
-
+#include <os/mmap.h>
+#include <pgtable.h>
 #include <stdio.h>
+#include <type.h>
 
-#define MAP_SHARED 0x1
-#define MAP_PRIVATE 0x2
-#define MAP_FIXED 0x10
-#define MAP_ANONYMOUS 0x20
 
-static void mmap_addr(uint64_t ptr, uint64_t size)
+/* Mmap all page to zero and do copy on write */
+static uintptr_t __mmap_addr(uint64_t ptr, uint64_t size, uint64_t prot)
 {
     uint64_t start = ptr;
+    uint64_t end;
     if (!start)
-        start = pr_mm(current).mmap_base;
-    uint64_t end = start + size;
-    pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE);
+    {
+        start = pr_mm(current).mmap_base;        
+        end = start + size;
+        pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE);        
+    } else 
+        end = start + size;
+
+
     for (uint64_t i = start; i < end; i += PAGE_SIZE)
     {
-        alloc_page_helper(i, current->pgdir, MAP_USER, \
-                        _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC);
+        uintptr_t exits_page;
+        // assert(get_kva_of(i, current->pgdir) == 0);
+        if ((exits_page =  get_kva_of(i, current->pgdir)) != 0)
+        {
+            // Free this page
+            freePage(exits_page);
+            // Point to zero page
+            alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \
+                            __prot_to_page_flag(prot) & (~_PAGE_WRITE));
+
+        } else 
+            alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \
+                            __prot_to_page_flag(prot) & (~_PAGE_WRITE));
+
+
         local_flush_tlb_page(i);
     }
-    
 
+    return start;
 }
 
-/* 成功返回已映射区域的指针，失败返回-1*/
-uint64_t fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off)
+/* mmap file to virtual address */
+static uintptr_t __mmap_addr_fd(uint64_t ptr, uint64_t fd, uint64_t off, uint64_t size, uint64_t prot)
 {
-    // printk("[mmap] start:%x, flags: %x, len:0x%x, fd: %d, off:%d\n", start, flags, len, fd, off);
+    assert((ptr & 0xfff) == 0);
+    uint64_t start = ptr;
+    uint64_t end;
+    if (!start)
+    {
+        start = pr_mm(current).mmap_base;        
+        end = start + size;
+        pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE);        
+    } else 
+        end = start + size;
+
+    int old_seek = fat32_lseek(fd, 0, SEEK_CUR);
+
+    fat32_lseek(fd, off, SEEK_SET);
+
+    for (uint64_t i = start; i < end; i += PAGE_SIZE)
+    {
+        // assert(get_kva_of(i, current->pgdir) == 0);
+        
+        if (get_kva_of(i, current->pgdir))
+        {
+            do_mprotect((void *)i, PAGE_SIZE, prot);
+        } else
+        {
+            uint64_t max_size = end - i;
+
+            char * buffer =  alloc_page_helper(i, current->pgdir, MAP_USER, \
+                                __prot_to_page_flag(prot));  
+
+            fat32_read(fd, buffer, min(PAGE_SIZE, max_size));
+        }
+
+        local_flush_tlb_page(i);
+    }    
+
+    fat32_lseek(fd, old_seek, SEEK_SET);
+
+    return start;
+}
+
+
+uint64_t fat32_mmap(void *start, size_t len, uint64_t prot, uint64_t flags, uint64_t fd, off_t off)
+{
     if(len <= 0 || (uintptr_t)start % NORMAL_PAGE_SIZE != 0){
         return -EINVAL;
     }
@@ -37,91 +97,55 @@ uint64_t fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t 
     }
     if(flags & MAP_ANONYMOUS){
         // return -ENOMEM;
-        if(fd != -1){
+        if((int64_t)fd != -1){
             return -EBADF;
         }
-        if (!start){
-            // no lazy
-            // start = lazy_brk(0);
-            // lazy_brk(start + len);
-            start = (void *)current->mm.mmap_base;
-            mmap_addr((uint64_t)start, len);
-            // fat32_lseek(fd, off, SEEK_SET);
-            // fat32_read(fd, start, len);
-        }
+        // if (!start){
+        //     start = (void *)current->mm.mmap_base;
+        start = (void *)__mmap_addr((uint64_t)start, len, prot);
+        // }
         if(flags & MAP_SHARED){
-            // printk("map shared need to do!\n");
+            printk("[SHARE]: mmap share waiting to implement");
         }
     }else{
-        //printk("file map not complete\n");
         int32_t fd_index;
-        if ((fd_index = get_fd_index(fd, current_running)) == -1)
-            return -EBADF;
-        fd_t *nfd = &current_running->pfd[fd_index];
-        int old_seek = fat32_lseek(nfd->fd_num,0,SEEK_CUR);
-        // if (current_running->pfd[fd_index].length < off + len){
-        //     printk("too big. len %lx, off %lx", len, off);
-        //     return -EINVAL;
-        // }
-        if (!start){
-            // start = lazy_brk(0);
-            // lazy_brk(start + len);
-            // start = do_brk(0);
-            // if ((uint64_t)start & 0x0fff)
-            //     start = (uint64_t)do_brk(ROUND((uint64_t)start, PAGE_SIZE));
-            // do_brk(start + len);   
-            start = (void *)current->mm.mmap_base;
-            mmap_addr((uint64_t)start, len);     
-        } 
-        else {
-            // check_addr_alloc(start, len);                   
+        
+        if (start)
+        {
+            if (!(flags & MAP_FIXED))
+            {
+                printk("[WARN]: User acquire fix add but not use MAP_FIXED");
+                start = (void *)current->mm.mmap_base;
+                
+            }
         }
-        fat32_lseek(fd, off, SEEK_SET);
-        fat32_read(fd, start, len);  
-        current_running->pfd[fd_index].mmap.used = 1;
-        current_running->pfd[fd_index].mmap.start = start;
-        current_running->pfd[fd_index].mmap.len = len;
-        current_running->pfd[fd_index].mmap.prot = prot;
-        current_running->pfd[fd_index].mmap.flags = flags;
-        current_running->pfd[fd_index].mmap.off = off;
-        fat32_lseek(nfd->fd_num,old_seek,SEEK_SET);
 
-        // fat32_lseek(current_running->pfd[fd_index].fd_num,off+len,SEEK_SET);
-        // fat32_read(fd, start, len);
+        if ((int64_t)fd == -1) 
+        {
+            __mmap_addr((uint64_t)start, len, prot);
+            goto end;
+        }
+
+        if ((fd_index = get_fd_index(fd, current)) == -1)
+            return -EBADF;
+        
+
+        start = (void *)__mmap_addr_fd((uint64_t)start, fd, off, len, prot);
+
     }    
-    // printk("[mmap] return start: %x\n",start);
+end:
     return (uint64_t)start;
 }
 
-/* 成功返回0，失败返回-1*/
 int64 fat32_munmap(void *start, size_t len)
 {
-    // printk("[munmap] start:0x%x, len: 0x%x\n", start, len);
+    printk("[munmap] start:0x%x, len: 0x%x\n", start, len);
     for (int i = 0; i < MAX_FILE_NUM; i++)
     {
         if (current_running->pfd[i].used && current_running->pfd[i].mmap.used && current_running->pfd[i].mmap.start == start){
             fd_t *nfd = &current_running->pfd[i];
             int old_seek = fat32_lseek(nfd->fd_num,0,SEEK_CUR);
             fat32_lseek(nfd->fd_num,nfd->mmap.off,SEEK_SET);
-            // for (void *cur_page = ROUNDDOWN(start,NORMAL_PAGE_SIZE); cur_page < ROUND(start+len,NORMAL_PAGE_SIZE); cur_page += NORMAL_PAGE_SIZE){
-            //     if (get_kva_of(cur_page,current_running->pgdir) != NULL) {
-            //         // if it's the first page of mmap
-            //         if (cur_page < ROUND(start+1,NORMAL_PAGE_SIZE)){
-            //             fat32_lseek(nfd->fd_num,nfd->mmap.off,SEEK_SET);
-            //             if (ROUND(start+1,NORMAL_PAGE_SIZE) < len) fat32_write(nfd->fd_num,start,(uint64_t)len);
-            //             else fat32_write(nfd->fd_num,start,ROUND(start+1,NORMAL_PAGE_SIZE)-(uint64_t)start);
-            //         }
-            //         // if it's not the first page of mmap
-            //         else {
-            //             uint64_t file_off = (uint64_t)cur_page - (uint64_t)start;
-            //             fat32_lseek(nfd->fd_num,nfd->mmap.off + file_off,SEEK_SET);
-            //             // if it's the last page of mmap
-            //             fat32_write(nfd->fd_num,cur_page,
-            //                         (cur_page + NORMAL_PAGE_SIZE > (start+len))
-            //                             ?(uint64_t)(start+len)%NORMAL_PAGE_SIZE:NORMAL_PAGE_SIZE);
-            //         } 
-            //     }
-            // }
             // fat32_lseek(current_running->pfd[i].fd_num, current_running->pfd[i].mmap.off + len,SEEK_SET);
             fat32_write(current_running->pfd[i].fd_num, start, len);
             if (nfd->mmap.start == start && nfd->mmap.len == len) {

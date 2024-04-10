@@ -2,8 +2,10 @@
 #define _ELF_H
 #include <os/string.h>
 #include <os/list.h>
+#include <os/auxvec.h>
 #include <pgtable.h>
 #include <type.h>
+
 /* 64-bit ELF base types. */
 typedef uint64_t Elf64_Addr;
 typedef uint16_t Elf64_Half;
@@ -29,40 +31,40 @@ extern uint64_t kload_buffer;
 
 #define AUX_CNT 38
 
-#define AT_NULL		0
-#define AT_IGNORE	1
-#define AT_EXECFD	2
-#define AT_PHDR		3
-#define AT_PHENT	4
-#define AT_PHNUM	5
-#define AT_PAGESZ	6
-#define AT_BASE		7
-#define AT_FLAGS	8
-#define AT_ENTRY	9
-#define AT_NOTELF	10
-#define AT_UID		11
-#define AT_EUID		12
-#define AT_GID		13
-#define AT_EGID		14
-#define AT_CLKTCK	17
-#define AT_PLATFORM	15
-#define AT_HWCAP	16
-#define AT_FPUCW	18
-#define AT_DCACHEBSIZE	19
-#define AT_ICACHEBSIZE	20
-#define AT_UCACHEBSIZE	21
-#define AT_IGNOREPPC	22
-#define	AT_SECURE	23
-#define AT_BASE_PLATFORM 24
-#define AT_RANDOM	25
-#define AT_HWCAP2	26
-#define AT_EXECFN	31
-#define AT_SYSINFO	32
-#define AT_SYSINFO_EHDR	33
-#define AT_L1I_CACHESHAPE	34
-#define AT_L1D_CACHESHAPE	35
-#define AT_L2_CACHESHAPE	36
-#define AT_L3_CACHESHAPE	37
+// #define AT_NULL		0
+// #define AT_IGNORE	1
+// #define AT_EXECFD	2
+// #define AT_PHDR		3
+// #define AT_PHENT	4
+// #define AT_PHNUM	5
+// #define AT_PAGESZ	6
+// #define AT_BASE		7
+// #define AT_FLAGS	8
+// #define AT_ENTRY	9
+// #define AT_NOTELF	10
+// #define AT_UID		11
+// #define AT_EUID		12
+// #define AT_GID		13
+// #define AT_EGID		14
+// #define AT_CLKTCK	17
+// #define AT_PLATFORM	15
+// #define AT_HWCAP	16
+// #define AT_FPUCW	18
+// #define AT_DCACHEBSIZE	19
+// #define AT_ICACHEBSIZE	20
+// #define AT_UCACHEBSIZE	21
+// #define AT_IGNOREPPC	22
+// #define	AT_SECURE	23
+// #define AT_BASE_PLATFORM 24
+// #define AT_RANDOM	25
+// #define AT_HWCAP2	26
+// #define AT_EXECFN	31
+// #define AT_SYSINFO	32
+// #define AT_SYSINFO_EHDR	33
+// #define AT_L1I_CACHESHAPE	34
+// #define AT_L1D_CACHESHAPE	35
+// #define AT_L2_CACHESHAPE	36
+// #define AT_L3_CACHESHAPE	37
 
 
 #define EI_MAG0 0 /* e_ident[] indexes */
@@ -206,12 +208,18 @@ typedef struct elf64_phdr
 } Elf64_Phdr;
 
 typedef struct ELF_info{
-    uint64_t text_begin;
-    uint64_t phoff;
-    uint64_t phent;
-    uint64_t phnum;
-    uint64_t entry;
-    uint64_t edata;
+    Elf64_Xword text_begin;
+    Elf64_Xword ustack;
+    Elf64_Xword pgdir;
+    Elf64_Xword phoff;
+    Elf64_Xword phent;
+    Elf64_Xword phnum;
+    Elf64_Xword entry;
+    Elf64_Xword edata;
+
+    Elf64_Xword interp_load_entry;
+    Elf64_Xword copy_interp_entry;
+
 } ELF_info_t;
 
 typedef struct aux_elem
@@ -306,16 +314,20 @@ int find_name_elf(const char * filename);
 
 
 // ===================== for dynamic ==========================
-#define DYNAMIC_VADDR_PFFSET 0x3000000000
-extern uintptr_t load_connector(const char * filename, uintptr_t pgdir);
-extern uintptr_t load_connnetor_fix(const char * filename, uintptr_t pgdir);
+#define DYNAMIC_VADDR_PFFSET 0x2000000000
+extern uintptr_t load_connector(pcb_t *initpcb, const char * path, uintptr_t offset);
 
 // ===================== for restore =========================
 #define SIZE_RESTORE 8
 extern void __restore();
 
 
+// utils
+int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset);
 
+
+typedef Elf64_Xword elf_addr_t;
+#define MAX_PARAM_NUM 64
 
 static inline uint32_t set_aux_vec(aux_elem_t *aux_vec, ELF_info_t *elf, uintptr_t file_pointer, uintptr_t random_ptr)
 {

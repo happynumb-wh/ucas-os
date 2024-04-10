@@ -8,6 +8,7 @@
 #include <os/spinlock.h>
 #include <os/string.h>
 #include <os/futex.h>
+#include <os/kdasics.h>
 #include <fs/fat32.h>
 #include <compile.h>
 #include <stdio.h>
@@ -162,160 +163,6 @@ void do_ps(void)
 }
 
 /**
- * @brief exec one process, used by the shell
- * @return succeed return the new pid failed return -1
- */
-pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t mode){
-    pcb_t *initpcb = get_free_pcb();
-    
-    // init the pcb 
-    initpcb->pgdir = allocPage() - PAGE_SIZE;   
-    initpcb->kernel_stack_top = allocPage();         //a kernel virtual addr, has been mapped
-    initpcb->kernel_sp = initpcb->kernel_stack_top;
-    initpcb->user_stack_top = USER_STACK_ADDR;       //a user virtual addr, not mapped
-    share_pgtable(initpcb->pgdir, PGDIR_PA);
-    /* map the user_stack, for NUM_MAX_USTACK*/
-    for (int i = 0; i < NUM_MAX_USTACK; i++)
-    {
-        alloc_page_helper(initpcb->user_stack_top - (i + 1) * PAGE_SIZE, \
-                                                         initpcb->pgdir, \
-                                                         MAP_USER, \
-                                                         _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY
-                         );
-    }
-    
-    /* copy the name */
-    strcpy(initpcb->name, file_name); 
-    /* init pcb mem */
-    init_pcb_member(initpcb, USER_PROCESS, AUTO_CLEANUP_ON_EXIT);
-
-    if (!strcmp(argv[argc - 1], "-dasics"))
-    {
-        initpcb->dasics = 1;
-    }
-
-    initpcb->parent.parent = current_running;
-    initpcb->ppid = initpcb->parent.parent->pid;
-    initpcb->mask = 3;
-    initpcb->priority = 3;
-    // load process into memory
-    ptr_t entry_point = load_process_memory(file_name, initpcb);
-
-
-    if ((int64_t)entry_point <= 0)
-    {
-        printk("[Error] load %s to memory false\n", file_name);
-        recycle_pcb_default(initpcb);
-        return -1;
-    }
-
-    pid_t pipe_pid = 0;
-    // handle for pipe and redirect
-    // int true_argc = handle_exec_pipe_redirect(initpcb, &pipe_pid, argc, argv);
-    int true_argc = argc;
-    // copy all things on the user stack
-    initpcb->user_sp = copy_thing_user_stack(initpcb, initpcb->user_stack_top, true_argc, \
-                        argv, fixed_envp, file_name);
-
-    // init all stack
-    init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, initpcb);
-    // add to ready queue
-    list_add(&initpcb->list, &ready_queue);
-
-    init_dasics_reg(initpcb);
-
-    if (strcmp("shell", file_name))
-        do_scheduler();
-        
-    return pipe_pid ? pipe_pid : initpcb->pid;
-}
-
-/**
- * @brief execve one process by current pcb
- * @param file_name file name
- * @param argv argv
- * @param envp envp
- * @return succeed never return, failed retuen -1
- * 
- */
-pid_t do_execve(const char* path, const char* argv[], const char * envp[]){
-    // printk("enter exec\n");
-    // printk("[execve] %s\n", path);
-    pcb_t * initpcb =current_running;
-    uintptr_t pre_pgdir = initpcb->pgdir;
-    // a new pgdir
-    initpcb->pgdir = allocPage() - PAGE_SIZE; 
-
-    initpcb->user_stack_top = USER_STACK_ADDR;       //a user virtual addr, not mapped
-    initpcb->kernel_sp =initpcb->kernel_stack_top;
-    share_pgtable(initpcb->pgdir, PGDIR_PA);
-    
-    /* map the user_stack */
-    /* map the user_stack, for NUM_MAX_USTACK*/
-    for (int i = 0; i < NUM_MAX_USTACK; i++)
-    {
-         alloc_page_helper(initpcb->user_stack_top - (i + 1) * PAGE_SIZE, \
-                                                         initpcb->pgdir, \
-                                                         MAP_USER, \
-                                                         _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY
-                         );
-    }
-    // excellent_load_t *pre_exe_load = initpcb->exe_load;
-
-    /* handle ./xxx */
-    for (int i = 0; i < strlen(path); i++){
-        if(path[i] == '/'){
-            path = path + i + 1;
-            break;
-        }
-    }
-    
-    /* copy the name */ 
-    strcpy(initpcb->name, path); 
-
-    /* init pcb mem */
-    init_execve_pcb(initpcb, USER_PROCESS, AUTO_CLEANUP_ON_EXIT);
-    
-    initpcb->mask = 3;
-    initpcb->priority = 3;
-    // load process into memory
-    ptr_t entry_point = load_process_memory(path, initpcb);
-
-    if (entry_point <= 0)
-    {
-        printk("[Error] load %s to memory false\n", path);
-        recycle_pcb_default(initpcb);
-        return -1;
-    }
-
-    int argc = (int)get_num_from_parm(argv);
-
-    // copya all things on the user stack
-    initpcb->user_sp = copy_thing_user_stack(initpcb, initpcb->user_stack_top, argc, \
-                        argv, envp, path);
-
-    uint64_t save_core_id = get_current_cpu_id();
-    // initialize process
-    init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, \
-                    initpcb);
-    initpcb->core_id = save_core_id;
-
-    // add in the ready_queue
-    list_add(&initpcb->list, &ready_queue);
-    #ifdef FAST
-        recycle_page_part(pre_pgdir, pre_exe_load);
-    #else
-        recycle_page_voilent(pre_pgdir);
-    #endif
-
-    // no signal
-    do_scheduler();
-    // this never return
-    return initpcb->pid;    
-}
-
-
-/**
  * @brief wait the process if pid == -1, 
  * wait every child, else wait the pointed process
  * @param pid the wait pid
@@ -449,7 +296,7 @@ pid_t do_clone(uint32_t flag, uint64_t stack, pid_t ptid, void *tls, pid_t ctid)
                                                       MAP_USER, \
                                                       _PAGE_READ | _PAGE_WRITE
                                                      );
-            share_pgtable(cloneu_base, ku_base);
+            memcpy((void *)cloneu_base, (const void *)ku_base, PAGE_SIZE);
         }
     // #endif    
 

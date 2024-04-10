@@ -18,8 +18,9 @@ void deal_no_W(uint64_t fault_addr)
     /* fault kva */
     uint64_t fault_kva = pa2kva((get_pfn(*fault_pte) << NORMAL_PAGE_SHIFT));
     
-    if (pageRecyc[GET_MEM_NODE(fault_kva)].share_num == 1) {
-
+    // dont't care kzero_page
+    if (fault_kva != (uint64_t)__kzero_page &&\
+         pageRecyc[GET_MEM_NODE(fault_kva)].share_num == 1) {
         set_attribute(fault_pte, get_attribute(*fault_pte) | _PAGE_WRITE);
         return;
     }

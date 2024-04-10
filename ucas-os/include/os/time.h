@@ -127,4 +127,16 @@ typedef struct timer{
 } timer_t;
 void itimer_check(void);
 int do_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value);
+
+
+/*
+ * Flags for getrandom(2)
+ *
+ * GRND_NONBLOCK	Don't block and return EAGAIN instead
+ * GRND_RANDOM		Use the /dev/random pool instead of /dev/urandom
+ */
+#define GRND_NONBLOCK	0x0001
+#define GRND_RANDOM	0x0002
+int64_t do_getrandom(char *buf, size_t count, uint32_t flags);
+
 #endif

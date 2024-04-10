@@ -119,7 +119,7 @@ typedef struct pcb
     uint64_t used;
 
     /* name for debug */
-    char name[50];
+    char name[256];
     /* list */
     list_node_t list;
 
@@ -155,6 +155,7 @@ typedef struct pcb
 
     /* BLOCK | READY | RUNNING | ZOMBIE */
     task_status_t status;
+    int dasics_flag;
     /* exit status */
     int exit_status;
 
@@ -212,28 +213,24 @@ typedef struct pcb
 #define WEXITSTATUS(exit_status) ((exit_status) << 8) & 0xff00)
 // conv-default
 static const char *fixed_envp[] __maybe_unused = {
-                                    "SHELL=/bin/bash",
+                                    "SHELL=/bin/sh",
                                     "PWD=/",
-                                    "LOGNAME=root",
-                                    "MOTD_SHOWN=pam",
-                                    "HOME=/root",
-                                    "LANG=C.UTF-8",
-                                    "INVOCATION_ID=9f58417fca9d46d4a23cde1329404868",
-                                    "TERM=vt220",
-                                    "USER=root",
-                                    "SHLVL=1",
-                                    "JOURNAL_STREAM=8:9290",
-                                    "HUSHLOGIN=FALSE",
+                                    "LOGNAME=id -un",
+                                    // "MOTD_SHOWN=pam",
+                                    "HOME=/",
+                                    // "LANG=C.UTF-8",
+                                    // "INVOCATION_ID=9f58417fca9d46d4a23cde1329404868",
+                                    "TERM=vt102",
+                                    "USER=id -un",
+                                    // "SHLVL=1",
+                                    // "JOURNAL_STREAM=8:9290",
+                                    // "HUSHLOGIN=FALSE",
                                     "PATH=.",
-                                    "MAIL=/var/mail/root",
-                                    "_=/usr/bin/bash",
-                                    "OLDPWD=/root",
-                                    "LD_LIBRARY_PATH=.",
-                                    #ifndef k210
-                                        "ENOUGH=5000",
-                                        "TIMING_O=12",
-                                        "LOOP_O=0.0027",
-                                    #endif
+                                    // "MAIL=/var/mail/root",
+                                    // "_=tt",
+                                    "OLDPWD=/",
+                                    "PATH=/",
+                                    // "LD_LIBRARY_PATH=.",
                                     NULL
                                    };
 
@@ -306,10 +303,6 @@ void init_execve_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode);
 void copy_on_write(PTE src_pgdir, PTE dst_pgdir);
 /* handle exec for pipe and redirect */
 int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, const char* argv[]);
-
-/* copy all the things on the user stack */ 
-uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
-            const char *argv[], const char *envp[], const char *filenam);
 
 
 /* scheduler */

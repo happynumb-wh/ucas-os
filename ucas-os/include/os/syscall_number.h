@@ -128,6 +128,7 @@
 #define SYS_wait4               (260) 
 #define SYS_prlimit             (261)
 #define SYS_renameat2           (276)
+#define SYS_getrandom           (278)
 #define SYS_membarrier          (283)
 
 

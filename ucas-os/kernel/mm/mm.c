@@ -13,10 +13,15 @@ page_node_t * pageRecyc = NULL;
 // control of the free page
 source_manager_t freePageManager;
 
-uintptr_t boot_stack[PAGE_SIZE];
+// When boot loader，this page will be used as boot stack
+// After boot, this page will be used as zero page
+uintptr_t boot_stack[PAGE_SIZE] __aligned(PAGE_SIZE);
+uintptr_t *__kzero_page = NULL; 
 
 // for fat32_load_elf
 uint64_t kload_buffer;
+void * __linker_buffer;
+
 
 uint64_t krand()
 {
@@ -26,14 +31,26 @@ uint64_t krand()
     return result;
 }
 
+// Init the zero page
+static void __init_kzero_page()
+{
+    __kzero_page = (void *)allocPage();
+
+    memset(__kzero_page, 0 , PAGE_SIZE);
+
+}
+
 // init mem
 uint32_t init_mem(){
     pageRecyc = (page_node_t *)kmalloc(sizeof(page_node_t) * NUM_REC + PAGE_SIZE * 2);
     kload_buffer = (uint64_t)kmalloc(MB * 4);
+    __linker_buffer = (void* )kmalloc(MB * 4);
+
     uint64_t memBegin = memCurr;
     // init list
     init_list(&freePageManager.free_source_list);
     init_list(&freePageManager.wait_list);
+
     for (int i = 0; i < NUM_REC; i++){
         list_add_tail(&pageRecyc[i].list, &freePageManager.free_source_list);
         pageRecyc[i].kva_begin = memBegin;
@@ -43,6 +60,9 @@ uint32_t init_mem(){
     }
 
     freePageManager.source_num = NUM_REC;
+
+    __init_kzero_page();
+
     return NUM_REC;
 }
 
@@ -60,7 +80,6 @@ try:    if (!list_empty(freePageList)){
         list_add_tail(new_page, &usedPageList);
 
         freePageManager.source_num--;
-        // memset(new->kva_begin,0,PAGE_SIZE);
         // printk("alloc mem kva 0x%lx\n", new->kva_begin);
         return new->kva_begin + PAGE_SIZE;        
     }else{
@@ -146,7 +165,7 @@ void share_pgtable(uintptr_t dest_pgdir, uintptr_t src_pgdir)
  * if not , alloc it and set the flag
  * return the pagebase
  */
-PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag){
+PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag, int bzero){
     if (page[vpn] & _PAGE_PRESENT) 
     {
         /* valid */
@@ -154,8 +173,11 @@ PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag){
     } else
     {
         uint64_t newpage = allocPage() - PAGE_SIZE;
-        /* clear the second page */
-        clear_pgdir(newpage);
+        if (bzero)
+        {
+            /* clear the second page */
+            clear_pgdir(newpage);            
+        }
         set_pfn(&page[vpn], kva2pa(newpage) >> NORMAL_PAGE_SHIFT);
         /* maybe need to set the U, the kernel will not set the U 
          * which means that the User will not get it, but we will 
@@ -204,9 +226,9 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
     PTE *third_page = NULL;
     /* find the second page */
     
-    second_page = (PTE *)check_page_set_flag(page_base, vpn[2], _PAGE_PRESENT);
+    second_page = (PTE *)check_page_set_flag(page_base, vpn[2], _PAGE_PRESENT, 1);
     /* third page */
-    third_page = (PTE *)check_page_set_flag(second_page, vpn[1], _PAGE_PRESENT);
+    third_page = (PTE *)check_page_set_flag(second_page, vpn[1], _PAGE_PRESENT, 1);
 
     /* final page */
     /* the R,W,X == 1 will be the leaf */
@@ -217,7 +239,7 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
                           _PAGE_USER);
     /* final page */
-    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags) | (va & (uint64_t)0x0fff));
+    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 0) | (va & (uint64_t)0x0fff));
 
 }
 
@@ -235,10 +257,10 @@ PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_
     /* finally page */
     PTE *third_page = NULL;
     /* find the second page */
-    second_page = (PTE *)check_page_set_flag(page_base, vpn[2], _PAGE_PRESENT);
+    second_page = (PTE *)check_page_set_flag(page_base, vpn[2], _PAGE_PRESENT, 1);
 
     /* third page */
-    third_page = (PTE *)check_page_set_flag(second_page, vpn[1], _PAGE_PRESENT);
+    third_page = (PTE *)check_page_set_flag(second_page, vpn[1], _PAGE_PRESENT, 1);
     /* final page */
     // if((third_page[vpn[0]] & _PAGE_PRESENT) != 0)
     //     /* return the physic page addr */
@@ -330,6 +352,10 @@ uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode){
     if (((third_page[vpn[0]]) & _PAGE_PRESENT)!=0)
     {
         third_page[vpn[0]] |= (_PAGE_ACCESSED | (mode == STORE ? _PAGE_DIRTY: 0));
+
+        if((third_page[vpn[0]] & _PAGE_WRITE) == 0 && mode == STORE){
+            return NO_W;
+        }
     }    
     else{
             return NO_ALLOC;

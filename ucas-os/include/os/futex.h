@@ -94,10 +94,10 @@ extern futex_node_t futex_node[MAX_FUTEX_NUM];
 extern int futex_node_used[MAX_FUTEX_NUM];
 extern void check_futex_timeout();
 extern void init_system_futex();
-extern int do_futex_wait(int *val_addr, int val, const struct timespec *timeout);
-extern int do_futex_wakeup(int *val_addr, int num_wakeup);
-extern int do_futex_requeue(int *uaddr, int* uaddr2, int num);
-extern int do_futex(uint32_t *uaddr, int futex_op, int val, const struct timespec *timeout,/* or: uint32_t val2 */int *uaddr2, int val3);
+extern int do_futex_wait(uint32_t *val_addr, uint32_t val, const struct timespec *timeout);
+extern int do_futex_wakeup(uint32_t *val_addr, uint32_t num_wakeup);
+extern int do_futex_requeue(uint32_t *uaddr, uint32_t* uaddr2, int num);
+extern int do_futex(uint32_t *uaddr, int futex_op, uint32_t val, const struct timespec *timeout,/* or: uint32_t val2 */uint32_t *val2, uint32_t val3);
 extern long do_get_robust_list(int pid, struct robust_list_head **head_ptr, size_t *len_ptr);
 extern long do_set_robust_list(struct robust_list_head *head, size_t len);
 #endif /* FUTEX_H */

@@ -148,3 +148,16 @@ int do_setitimer(int which, const struct itimerval *new_value,
     list_add_tail(&current_running->itimer.list, &timers);
     return 0;
 }
+
+
+
+int64_t do_getrandom(char *buf, size_t count, uint32_t flags)
+{
+    for (int i = 0; i < count; i++)
+    {
+        buf[i] = (char)(krand() / 0xff);
+    }
+    
+    return count;
+
+}

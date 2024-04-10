@@ -1,36 +1,12 @@
 #ifndef MM_H
 #define MM_H
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * *
- *            Copyright (C) 2018 Institute of Computing Technology, CAS
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * *
- *                                   Memory Management
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * *
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * */
 #include <os/spinlock.h>
 #include <os/source.h>
+#include <os/list.h>
+#include <os/auxvec.h>
 #include <type.h>
 #include <pgtable.h>
-#include "os/list.h"
 
 
 extern uintptr_t __BSS_END__[];
@@ -73,9 +49,9 @@ static LIST_HEAD(shareMemKey);
 #define INIT_KERNEL_STACK_SLAVE (INIT_KERNEL_STACK_MSTER + PAGE_SIZE)
 
 // pcb user stack message
-#define USER_STACK_ADDR 0xf00010000lu
-#define SIGNAL_HANDLER_ADDR 0xf10010000lu
-#define USER_STACK_HIGN 0xf00000000lu
+#define USER_STACK_ADDR 0x3900000000lu
+#define SIGNAL_HANDLER_ADDR 0x3800000000lu
+#define USER_STACK_HIGN 0x3000000000lu
 // alloc high 0.5MB for the Heap, never be realloc
 // Free MEM
 #define FREEMEM (INIT_KERNEL_STACK + 2 * PAGE_SIZE)
@@ -86,9 +62,11 @@ static LIST_HEAD(shareMemKey);
 
 #define GET_MEM_NODE(baseAddr) (((baseAddr) - (FREEMEM)) / NORMAL_PAGE_SIZE)
 
-#define MMAP_BASE 0x2000000000
+#define MMAP_BASE 0x2100000000
 
 extern uintptr_t boot_stack[PAGE_SIZE];
+extern uintptr_t *__kzero_page;
+extern void * __linker_buffer;
 
 /* the struct for per page */
 typedef struct page_node{
@@ -119,6 +97,7 @@ typedef struct mm_struct
     uint64_t ulib_sec_exist;
     uint64_t free_sec_exit;
     uint64_t map_now;
+    uint64_t aux_elem_t[AT_VECTOR_SIZE];
 } mm_struct_t;
 
 
@@ -158,7 +137,7 @@ extern uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode);
 uintptr_t shm_page_get(int key);
 void shm_page_dt(uintptr_t addr);
 /* check the page and set flag for it */
-PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag);
+PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag, int bzero);
 
 /* free pgtable */
 uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir);

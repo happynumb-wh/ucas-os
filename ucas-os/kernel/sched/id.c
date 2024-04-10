@@ -25,7 +25,7 @@ pid_t do_set_tid_address(int *tidptr)
 {
     
     current_running->clear_ctid = (uint32_t *)tidptr;
-    return current_running->tid;
+    return current_running->tid + 12;
 }
 
 pid_t do_setsid(void){

@@ -188,7 +188,7 @@ static inline void clear_pgdir(uintptr_t pgdir_addr)
     /**
      * clear page
      */
-    for(uint64_t i = 0; i < 0x1000; i+=8){
+    for(uint64_t i = 0; i < PAGE_SIZE; i += 8){
         *((uint64_t *)(pgdir_addr+i)) = 0;
     }
 }

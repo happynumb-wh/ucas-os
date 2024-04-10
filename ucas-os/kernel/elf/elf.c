@@ -1,6 +1,7 @@
 #include <os/elf.h>
 #include <os/sched.h>
 #include <os/mm.h>
+#include <os/kdasics.h>
 #include <fs/fat32.h>
 #include <utils/utils.h>
 #include <assert.h>
@@ -61,7 +62,6 @@ uintptr_t load_elf(
      */
     Elf64_Phdr *ptr_ph_table = NULL;
     Elf64_Half ph_entry_count;
-    int i;
 
     ehdr = (Elf64_Ehdr *)elf_binary;    
     shdr = (Elf64_Shdr *)((uint64_t)elf_binary + ehdr->e_shoff);
@@ -97,100 +97,54 @@ uintptr_t load_elf(
 	end_data = 0;
 
     int is_first = 1; 
-    // load elf
-    // debug_print_ehdr(*ehdr);
     while (ph_entry_count--) {
         phdr = (Elf64_Phdr *)ptr_ph_table;
-
-        *mem_alloc += phdr->p_memsz;
-
+        
         if (phdr->p_type == PT_INTERP)
         {
             *dynamic = 1;
-        }
-             
-
-        if (phdr->p_type == PT_LOAD) {
-            // debug_print_phdr(*phdr);
-            uint64_t flag = get_page_flag(phdr);
-            for (i = 0; i < phdr->p_memsz; i += NORMAL_PAGE_SIZE) {
-page_remain_qemu: ;
-                if (i < phdr->p_filesz) {
-                    unsigned char *bytes_of_page =
-                        (unsigned char *)alloc_page_helper(
-                            (uintptr_t)(phdr->p_vaddr + i), 
-                                                    pgdir,
-                                                MAP_USER,
-                                                flag);
-                    // not 0x1000 page align
-                    uint64_t page_top = ROUND(bytes_of_page, 0x1000);
-
-                    uint64_t page_remain = (uint64_t)page_top - \
-                                    (uint64_t)(bytes_of_page);   
-
-                    // printk("vaddr: 0x%lx, page_top: 0x%lx, page_remain: 0x%lx\n",
-                    //     (uint64_t)phdr->p_vaddr + i, page_top, page_remain);                
-                    
-                    if (page_remain == 0)                         
-                        memcpy(
-                            bytes_of_page,
-                            elf_binary + phdr->p_offset + i,
-                            MIN(phdr->p_filesz - i, NORMAL_PAGE_SIZE));
-                    else 
-                    {
-                        
-                        memcpy(
-                            bytes_of_page,
-                            elf_binary + phdr->p_offset + i,
-                            MIN(phdr->p_filesz - i, page_remain));
-                        // if less than page remain, point has ok, and we call add 0x1000
-                        if (phdr->p_filesz - i <  page_remain) {
-                            for (int j =
-                                    (phdr->p_vaddr + phdr->p_filesz) % NORMAL_PAGE_SIZE;
-                                j < NORMAL_PAGE_SIZE; ++j) {
-                                bytes_of_page[j] = 0;
-                            }
-                            continue;
-                        } else 
-                        {
-                            i += page_remain;
-                            goto page_remain_qemu;  
-                        }
-                                                                               
-                    }
-
-                    // printk("bytes_of_page: 0x%lx, page_top: 0x%lx, page_remain: 0x%lx\n",
-                    //     (uint64_t)bytes_of_page, page_top, page_remain);
-                    if (phdr->p_filesz - i < NORMAL_PAGE_SIZE) {
-                        for (int j =
-                                 (phdr->p_vaddr + phdr->p_filesz) % NORMAL_PAGE_SIZE;
-                             j < NORMAL_PAGE_SIZE; ++j) {
-                            bytes_of_page[j] = 0;
-                        }
-                    }
-                } else {
-                    long *bytes_of_page =
-                        (long *)alloc_page_helper(
-                            (uintptr_t)(phdr->p_vaddr + i), 
-                            pgdir,
-                            MAP_USER,
-                            flag);
-                    uint64_t clear_begin = (uint64_t)bytes_of_page & (uint64_t)0x0fff;
-                    for (int j = clear_begin;
-                         j < NORMAL_PAGE_SIZE / sizeof(long);
-                         ++j) {
-                        bytes_of_page[j] = 0;
-                    }
+            const char * linker_path = (const char *)(phdr-> p_offset + (uintptr_t)elf_binary);
+            if (initpcb->dasics_flag ==  DASICS_STATIC)
+            {
+                initpcb->dasics_flag = DASICS_DYNAMIC;
+                initpcb->elf.interp_load_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            DASICS_LINKER_BASE
+                        );
+                initpcb->elf.copy_interp_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            COPY_LINKER_BASE
+                        );
+                if ((int64_t)initpcb->elf.interp_load_entry <= 0 || \
+                        (int64_t)initpcb->elf.copy_interp_entry <= 0)
+                {
+                    printk("[ERROR]: failed to Load linker %s\n", linker_path);
+                    return -ENOENT;                    
                 }
+            } else 
+            {
+                initpcb->elf.interp_load_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            DYNAMIC_VADDR_PFFSET
+                        );                
             }
+        }
+
+        *mem_alloc += phdr->p_memsz;
+   
+        if (phdr->p_type == PT_LOAD) {
+
+            map_phdr(pgdir, phdr, elf_binary, 0);
+            
             initpcb->elf.edata =  phdr->p_vaddr + phdr->p_memsz;
             initpcb->edata = phdr->p_vaddr + phdr->p_memsz;
             if (is_first) { 
-                // debug_print_phdr(*phdr);
                 initpcb->elf.text_begin = phdr->p_vaddr; 
                 is_first = 0;
-                // Elf64_Phdr * test_phdr =  (Elf64_Phdr *)(phdr->p_offset + ehdr->e_phoff + elf_binary);
-                // debug_print_phdr(*test_phdr);
+                
             }
             k = phdr->p_vaddr;
             if (k < start_code)
@@ -264,16 +218,9 @@ page_remain_qemu: ;
     mm->elf_bss = elf_bss;
     mm->mmap_base = MMAP_BASE;
 
-    return ehdr->e_entry;
+    return *dynamic ? initpcb->elf.interp_load_entry :  ehdr->e_entry;
 }
 
-
-
-
-
-
-
-char * default_dll_linker = "/lib/ld-linux-riscv64-lp64d.so.1";
 /**
  * @brief 从SD卡加载整个进程执行
  * @param fd 文件描述符
@@ -317,17 +264,15 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
     /* As a loader, we just care about segment,
      * so we just parse program headers.
      */
-    Elf64_Off ptr_ph_table;
+    Elf64_Phdr * ptr_ph_table;
     Elf64_Half ph_entry_count;
-    Elf64_Half ph_entry_size;
-    int i = 0;
     // check whether `binary` is a ELF file.
     if (_read_length < 4 || !is_elf_format((uchar *)_ehdr)) {
         return 0;  // return NULL when error!
     }
-    ptr_ph_table   = _ehdr->e_phoff;
+    ptr_ph_table   = (Elf64_Phdr *)(__load_buff + _ehdr->e_phoff);
+
     ph_entry_count = _ehdr->e_phnum;
-    ph_entry_size  = _ehdr->e_phentsize;
 
     // save all useful message
     initpcb->elf.phoff = _ehdr->e_phoff;
@@ -348,59 +293,46 @@ uintptr_t fat32_load_elf(uint32_t fd, uintptr_t pgdir, uint64_t *file_length, in
 	end_data = 0;    
 
     while (ph_entry_count--) {
-        _phdr = (Elf64_Phdr*)((uint64_t)__load_buff + ptr_ph_table);
+        _phdr = ptr_ph_table;
         *file_length += _phdr->p_memsz;
         if (_phdr->p_type == PT_INTERP)
+        {
             *dynamic = 1;
+            const char * linker_path = (const char *)(_phdr-> p_offset + (uintptr_t)__load_buff);
+            if (initpcb->dasics_flag ==  DASICS_STATIC)
+            {
+                initpcb->dasics_flag = DASICS_DYNAMIC;
+                initpcb->elf.interp_load_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            DASICS_LINKER_BASE
+                        );
+                initpcb->elf.copy_interp_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            COPY_LINKER_BASE
+                        );
+                if ((int64_t)initpcb->elf.interp_load_entry <= 0 || \
+                        (int64_t)initpcb->elf.copy_interp_entry <= 0)
+                {
+                    printk("[ERROR]: failed to Load linker %s\n", linker_path);
+                    return -ENOENT;                    
+                }
+            } else 
+            {
+                initpcb->elf.interp_load_entry = \
+                        load_connector(initpcb, \
+                            linker_path, \
+                            DYNAMIC_VADDR_PFFSET
+                        );                
+            }
+
+        }
 
         if (_phdr->p_type == PT_LOAD) {
-            uint64_t page_flag = get_page_flag(_phdr);
-            for (i = 0; i < _phdr->p_memsz; i += NORMAL_PAGE_SIZE) {
-page_remain_k210: ;
-                if (i < _phdr->p_filesz) {
-                    unsigned char *bytes_of_page =
-                        (unsigned char *)alloc_page_helper(
-                               (uintptr_t)(_phdr->p_vaddr + i), 
-                                                       pgdir,
-                                                    MAP_USER,\
-                                                    page_flag
-                                                   );
-                   
-                    // not 0x1000 page align
-                    uint64_t page_top = ROUND(bytes_of_page, 0x1000);
 
-                    uint64_t page_remain = (uint64_t)page_top - \
-                                    (uint64_t)(bytes_of_page);   
+            map_phdr(pgdir, _phdr, __load_buff, 0);
 
-                    char * __ptr = (char *)((uint64_t)__load_buff + _phdr->p_offset + i);
-
-                    if (page_remain == 0) 
-                    {
-                        memcpy(
-                            bytes_of_page,
-                            __ptr,
-                            MIN(_phdr->p_filesz - i, NORMAL_PAGE_SIZE));                                           
-                    } else 
-                    {
-                        memcpy(
-                            bytes_of_page,
-                            __ptr,
-                            MIN(_phdr->p_filesz - i, page_remain));
-
-                        i += page_remain;
-                        goto page_remain_k210;  
-                    }
-                    
-                } else {
-                    long * __maybe_unused bytes_of_page =
-                        (long *)alloc_page_helper(
-                        (uintptr_t)(_phdr->p_vaddr + i), 
-                                              pgdir,
-                                              MAP_USER,
-                                              page_flag);
-
-                }
-            }
             // save edata
             initpcb->elf.edata =  _phdr->p_vaddr + _phdr->p_memsz;
             initpcb->edata = _phdr->p_vaddr + _phdr->p_memsz;
@@ -426,7 +358,7 @@ page_remain_k210: ;
                 elf_brk = k;
             }            
         }
-        ptr_ph_table += ph_entry_size;
+        ptr_ph_table ++;
     }
 
     memset(mm, 0, sizeof(mm_struct_t));
@@ -479,5 +411,5 @@ page_remain_k210: ;
     mm->elf_bss = elf_bss;
     mm->mmap_base = MMAP_BASE;
 
-    return _ehdr->e_entry;
+    return *dynamic ? initpcb->elf.interp_load_entry :  _ehdr->e_entry;
 }

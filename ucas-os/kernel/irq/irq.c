@@ -4,7 +4,7 @@
 #include <os/sched.h>
 #include <os/string.h>
 #include <os/mm.h>
-#include <os/dasics.h>
+#include <os/kdasics.h>
 #include <os/futex.h>
 #include <stdio.h>
 #include <assert.h>
@@ -80,7 +80,7 @@ void handle_page_fault_load(regs_context_t *regs, uint64_t stval, uint64_t cause
         local_flush_tlb_all();
         break;
     case IN_SD:
-        prints("> Attention: the 0x%lx addr was swapped to SD! the origin physical addr is 0x%lx\n", 
+        printk("> Attention: the 0x%lx addr was swapped to SD! the origin physical addr is 0x%lx\n", 
         fault_addr, kva2pa(get_pfn_of(fault_addr, current_running->pgdir)));
         break; 
     case NO_ALLOC:
@@ -102,7 +102,9 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
     // printk("store page fault: %lx\n",stval);
     // if (is_kva(stval))
     //     return;
-    uint64_t fault_addr = stval;   
+    uint64_t fault_addr = stval;
+    PTE * pte = get_PTE_of(stval, current->pgdir);
+    printk("PTE: 0x%lx, stval: 0x%lx\n", *pte, stval);   
     switch (check_W_SD_and_set_AD(fault_addr, current_running->pgdir, STORE))
     {
     case ALLOC_NO_AD:
@@ -172,23 +174,23 @@ void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
         " s9  "," s10 "," s11 "," t3  "," t4  ",
         " t5  "," t6  "
     };
-    prints("name: %s, pid: %ld\n", current->name, current->pid);
+    printk("name: %s, pid: %ld\n", current->name, current->pid);
     for (int i = 0; i < 32; i += 3) {
         for (int j = 0; j < 3 && i + j < 32; ++j) {
-            prints("%s : %016lx ",reg_name[i+j], *(long *)((reg_t)regs + (i + j) * sizeof(reg_t)));
+            printk("%s : %016lx ",reg_name[i+j], *(long *)((reg_t)regs + (i + j) * sizeof(reg_t)));
         }
-        prints("\n\r");
+        printk("\n\r");
     }
-    prints("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
+    printk("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
            regs->sstatus, regs->sbadaddr, regs->scause);
-    prints("stval: 0x%lx cause: %lx\n\r",
+    printk("stval: 0x%lx cause: %lx\n\r",
            stval, cause);
-    prints("sepc: 0x%lx\n\r", regs->sepc);
-    prints("mhartid: 0x%lx\n\r", get_current_cpu_id());
+    printk("sepc: 0x%lx\n\r", regs->sepc);
+    printk("mhartid: 0x%lx\n\r", get_current_cpu_id());
 
     uintptr_t fp = regs->s0, sp = regs->sp;
-    prints("[Backtrace]\n\r");
-    prints("  addr: %lx sp: %lx fp: %lx\n\r", regs->ra - 4, sp, fp);
+    printk("[Backtrace]\n\r");
+    printk("  addr: %lx sp: %lx fp: %lx\n\r", regs->ra - 4, sp, fp);
 
 
     // while (fp < USER_STACK_ADDR && fp > USER_STACK_ADDR - PAGE_SIZE) {
@@ -203,7 +205,7 @@ void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
     if (regs->scause == EXCC_LOAD_PAGE_FAULT)
     {
         uint64_t kva =  get_kva_of(regs->sbadaddr, current->pgdir);
-        prints("The kva: %lx, addr: %lx\n", kva, *(uint64_t *)kva);
+        printk("The kva: %lx, addr: %lx\n", kva, *(uint64_t *)kva);
     }
 
 
@@ -214,12 +216,12 @@ void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
 void handle_miss(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
     // the tp will be other thingss
-    prints("name: %s, pid: %ld\n", current_running->name, current_running->pid);    
-    prints("handle undefined syscall_number: %ld\n", regs->a7);
-    prints("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
+    printk("name: %s, pid: %ld\n", current_running->name, current_running->pid);    
+    printk("handle undefined syscall_number: %ld\n", regs->a7);
+    printk("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
            regs->sstatus, regs->sbadaddr, regs->scause);
-    prints("[Backtrace]\n\r");
-    prints("  addr: 0x%lx sp: 0x%lx fp: 0x%lx\n\r", regs->ra - 4, regs->sp, regs->s0);
+    printk("[Backtrace]\n\r");
+    printk("  addr: 0x%lx sp: 0x%lx fp: 0x%lx\n\r", regs->ra - 4, regs->sp, regs->s0);
     screen_reflush();
     assert(0);
 }
@@ -249,18 +251,19 @@ void debug_info(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
     // printk("==============debug-info start==============\n\r");
     if(regs->a7 == 165 || \
-       regs->a7 == 113 || \
        regs->a7 == 321 || \
-       regs->a7 == 64 || \
+       regs->a7 == 323 || \
        regs->a7 == 320 || \
-       regs->a7 == 323
+       regs->a7 == 64
+    //    regs->a7 == 320 ||
+    //    regs->a7 == 323
        ){
         // don't print getrusage and clock gettime
         return;
     }
     printk("core %d pid %d entering syscall: %s\n", \
-                do_getpid() == current_running_master->pid? 0: 1, \
-                do_getpid(), \
+                current->core_id, \
+                current->pid, \
                 syscall_name[regs->a7]);
     // pcb_t * pcb = current_running;//(pcb_t *)regs->regs[4];
     // printk("process name: %s, pid:%d\n", pcb->name, pcb->pid);
@@ -403,10 +406,17 @@ char *syscall_array[] = {
     "SYS_readch            ",
     "SYS_flush             ",
     "SYS_timebase          ",
-    "SYS_gettick           " 
+    "SYS_gettick           ",
+    "SYS_getrandm          ",
+    "SYS_unkown            ",
 };
 
 void init_syscall_name(){
+    for (int i = 0; i < 512; i++)
+    {
+      syscall_name[i] =  syscall_array[115];
+    }
+    
     syscall_name[ 17] = syscall_array[0];     
     syscall_name[ 23] = syscall_array[1];      
     syscall_name[ 24] = syscall_array[2];     
@@ -521,4 +531,5 @@ void init_syscall_name(){
     syscall_name[323] = syscall_array[111];
     syscall_name[330] = syscall_array[112];
     syscall_name[331] = syscall_array[113];
+    syscall_name[278] = syscall_array[114];
 }

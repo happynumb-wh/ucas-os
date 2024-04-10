@@ -6,6 +6,7 @@
 #include <os/irq.h>
 #include <os/spinlock.h>
 #include <os/string.h>
+#include <os/elf.h>
 #include <fs/file.h>
 #include <fs/fat32.h>
 #include <os/futex.h>
@@ -61,7 +62,7 @@ void init_pcb_stack(
         // use sscratch to placed tp
         pt_regs->sscratch = (reg_t) pcb;
         pt_regs->sepc = entry_point;                  //sepc
-        pt_regs->sstatus = SR_SUM | SR_FS;        //sstatus
+        pt_regs->sstatus = SR_SUM | SR_FS | SR_SPIE;        //sstatus
 
     }
 
@@ -93,7 +94,7 @@ void init_clone_stack(pcb_t *pcb, void * tls)
                                                     sizeof(switchto_context_t)
                                                 );
     /* copy all kernel stack */
-    share_pgtable(pcb->kernel_stack_base, current_running->kernel_stack_base);
+    memcpy((void *)pcb->kernel_stack_base, (const void *)current_running->kernel_stack_base, PAGE_SIZE);
     pcb->kernel_sp = (uintptr_t) (pcb->switch_context);
     
     // some change trap reg
@@ -122,23 +123,6 @@ uintptr_t load_process_memory(const char * path, pcb_t * initpcb)
     // #ifdef k210
     int dynamic = 0;
     uint64_t length = 0;     
-        // #ifdef FAST
-        //     ptr_t entry_point = fast_load_elf(path, initpcb->pgdir, &length, initpcb);
-        // #else        
-        //     int fd;
-        //     if((fd = fat32_openat(AT_FDCWD, path, O_RDONLY, NULL)) == -1) {
-        //         prints("failed to open %s\n", path);
-        //         return -ENOENT; 
-        //     }        
-        //     ptr_t entry_point = fat32_load_elf(         fd, 
-        //                                     initpcb->pgdir, 
-        //                                         &length,
-        //                                         &dynamic,
-        //                                         initpcb,
-        //                                 alloc_page_helper
-        //                                             );
-        // #endif
-
     int elf_id = get_file_from_kernel(path);
 
     ptr_t entry_point = 0;
@@ -175,9 +159,6 @@ uintptr_t load_process_memory(const char * path, pcb_t * initpcb)
     if(entry_point == 0)
         return -ENOEXEC;
 
-    // if dynamic load_connector
-    if (dynamic)
-        return load_connnetor_fix("ld-linux-riscv64-lp64d.so.1", initpcb->pgdir);
 
     return entry_point;
 }
@@ -195,6 +176,7 @@ void init_pcb_member(pcb_t * initpcb,  task_type_t type, spawn_mode_t mode)
     // id lock
     initpcb->pid = process_id++;
 
+    initpcb->dasics_flag = 0;
     initpcb->used = 1;
     initpcb->status = TASK_READY;
     initpcb->type = type;
@@ -255,6 +237,7 @@ void init_clone_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode)
     initpcb->ppid = current_running->pid;
     initpcb->tid = process_id++;
     initpcb->execve = 0;
+    initpcb->dasics_flag = current_running->dasics_flag;
 
     initpcb->used = 1;
     initpcb->status = TASK_READY;
@@ -318,9 +301,8 @@ void init_clone_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode)
  */
 void init_execve_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode)
 {
-     
-
     initpcb->status = TASK_READY;
+    initpcb->dasics_flag = 0;
     initpcb->type = type;
     if (initpcb->mode == AUTO_CLEANUP_ON_EXIT)
         initpcb->mode = mode;
@@ -467,110 +449,6 @@ void set_argc_argv_std(int argc, char * argv[], pcb_t *init_pcb)
 }
 
 /**
- * @brief copy the argv, envp, and aux on the user stack.
- * @param pcb the pcb structure 
- * @param user_stack init user stack
- * @param argc num of argc
- * @param argv argv
- * @param envp environment
- * @param filename the filename
- */
-uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
-            const char *argv[], const char *envp[], const char *filename)
-{
-    // the kva of the user_top
-    uintptr_t kustack_top = get_kva_of(init_pcb->user_stack_top - PAGE_SIZE, init_pcb->pgdir) + PAGE_SIZE;
-    // caculate the space needed
-    int envp_num = (int)get_num_from_parm(envp);
-
-    // printk("argc: %d, envp_num: %d\n", argc, envp_num);
-    // for (int i = 0; i < argc; i++)
-    // {
-    //     /* code */
-    //     printk("%s\n", argv[i]);
-    // }
-    // for (int i = 0; i < envp_num; i++)
-    // {
-    //     /* code */
-    //     printk("%s\n", envp[i]);
-    // }
-    
-    int tot_length = (argc + envp_num + 3) * sizeof(uintptr_t *) + sizeof(aux_elem_t) * (AUX_CNT + 1) + SIZE_RESTORE;
-    
-    int point_length = tot_length;
-    // get the space of the argv
-    for (int i = 0; i < argc; i++)
-    {
-        tot_length += (strlen(argv[i]) + 1);
-    }
-    // get the space of the envp
-    for (int i = 0; i < envp_num; i++)
-    {
-        tot_length += (strlen(envp[i]) + 1);
-    }
-    
-    tot_length += (strlen(filename) + 1);
-    // for random
-    tot_length += (0x10);
-    tot_length = ROUND(tot_length, 0x100);
-
-    // printk("tot_length: 0x%lx\n", tot_length);
-
-    uintptr_t kargv_pointer = kustack_top - tot_length;
-
-    intptr_t kargv = kargv_pointer + point_length;
-    
-    // printk("point length: 0x%lx, kargv_pointer: 0x%lx, kargv: 0x%lx\n",point_length, kargv_pointer, kargv);
-    /* 1. save argc */
-    *((uintptr_t *)kargv_pointer) = argc; kargv_pointer += sizeof(uintptr_t*);
-    /* 2. save argv */
-    uintptr_t new_argv = init_pcb->user_stack_top - tot_length + point_length;
-    for (int j = 0; j < argc; j++){ 
-        *((uintptr_t *)kargv_pointer + j) = (uint64_t)new_argv;
-        strcpy((char *)kargv , argv[j]);
-        new_argv = new_argv + strlen(argv[j]) + 1;
-        kargv = kargv + strlen(argv[j]) + 1;
-    }
-    // kargv_pointer += sizeof(uintptr_t*) * argc;
-    *((uintptr_t *)kargv_pointer + argc) = 0;
-
-    kargv_pointer += (argc + 1) * sizeof(uintptr_t *);
-
-    /* 3. save envp */
-    for (int j = 0; j < envp_num; j++){ 
-        *((uintptr_t *)kargv_pointer + j) = (uint64_t)new_argv;
-        strcpy((char *)kargv , envp[j]);
-        new_argv = new_argv + strlen(envp[j]) + 1;
-        kargv = kargv + strlen(envp[j]) + 1;
-    }
-    *((uintptr_t *)kargv_pointer + envp_num) = 0;
-
-    kargv_pointer += (envp_num + 1) * sizeof(uintptr_t *);
-
-    /* 4. save the file name */
-    strcpy((char *)kargv , filename);
-
-    uintptr_t file_pointer = new_argv;
-    new_argv = new_argv + strlen(filename) + 1;
-    kargv = kargv + strlen(filename) + 1;
-
-    /* 5. set aux */
-    // aux_elem_t aux_vec[AUX_CNT];
-    set_aux_vec((aux_elem_t *)kargv_pointer, &init_pcb->elf, file_pointer, new_argv);
-
-    // printk("aux_vec: %lx \n", kargv_pointer);
-    /* 6. copy aux on the user_stack */
-    // memcpy(kargv_pointer, aux_vec, sizeof(aux_elem_t) * (AUX_CNT + 1));
-    *((uintptr_t *)kargv_pointer + AUX_CNT + 1) = 0;
-
-    /* 7. copy the restore on the user stack */
-    memcpy((char *)(kustack_top - SIZE_RESTORE), __restore, SIZE_RESTORE);
-    /* 8. return user_stack */
-    return init_pcb->user_stack_top - tot_length;
-    
-}
-
-/**
  * @brief get argc num from argv
  * @param argv the argv array
  * @return return the argc num
@@ -597,7 +475,7 @@ void copy_on_write(PTE src_pgdir, PTE dst_pgdir)
         if (kernelBase[vpn2] || !src_base[vpn2]) 
             continue;
         PTE *second_page_src = (PTE *)pa2kva((get_pfn(src_base[vpn2]) << NORMAL_PAGE_SHIFT));
-        PTE *second_page_dst = (PTE *)check_page_set_flag(dst_base , vpn2, _PAGE_PRESENT);
+        PTE *second_page_dst = (PTE *)check_page_set_flag(dst_base , vpn2, _PAGE_PRESENT, 1);
         /* we will let the user be three levels page */ 
         for (int vpn1 = 0; vpn1 < PTE_NUM; vpn1++)
         {
@@ -608,7 +486,7 @@ void copy_on_write(PTE src_pgdir, PTE dst_pgdir)
             }
                
             PTE *third_page_src = (PTE *)pa2kva((get_pfn(second_page_src[vpn1]) << NORMAL_PAGE_SHIFT));
-            PTE *third_page_dst = (PTE *)check_page_set_flag(second_page_dst , vpn1, _PAGE_PRESENT);
+            PTE *third_page_dst = (PTE *)check_page_set_flag(second_page_dst , vpn1, _PAGE_PRESENT, 1);
             for (int vpn0 = 0; vpn0 < PTE_NUM; vpn0++)
             {
                 if (!third_page_src[vpn0] || third_page_dst[vpn0]) 

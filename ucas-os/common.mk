@@ -32,7 +32,7 @@ CONFIG_DEF      = -DDASICS_DEBUG \
 					-DRAMFS \
 					-DPRINT_LOG
 # -DNANHU_V3					
-CFLAGS          = -O2 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
+CFLAGS          = -O0 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
 KERNEL_CFLAGS   = CFLAGS
 USER_CFLGAS     = CFLAGS
 

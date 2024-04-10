@@ -465,6 +465,8 @@ int64 fat32_lseek(fd_num_t fd, size_t off, uint32_t whence)
     if (fd_index < 0) return -EBADF;
     fd_t *nfd = &current_running->pfd[fd_index];
     if (nfd->dev != DEV_DEFAULT) return -EINVAL;
+
+    uint64_t old_off = nfd->pos;
     // if(nfd->share_fd != 0 && nfd->share_fd->version > nfd->version){
     //     memcpy(nfd, nfd->share_fd, sizeof(fd_t));
     // }   
@@ -482,6 +484,9 @@ int64 fat32_lseek(fd_num_t fd, size_t off, uint32_t whence)
         default: assert(0);
             break;
     }
+
+    if (old_off == nfd->pos) return nfd->pos;
+
     // printk("[lseek] entering update_fd_from_pos\n");
     if (nfd->pos < nfd->length) update_fd_from_pos(nfd, nfd->pos);
     // printk("[lseek] leaving update_fd_from_pos\n");
@@ -544,7 +549,7 @@ int fat32_chdir(char *dest_path)
     }
     if(f_dir.name[0] == 0xff)
     {
-        prints("No such directory.\n\r");
+        printk("No such directory.\n\r");
         return -ENOENT;
     }
     char *buff = kmalloc(PAGE_SIZE);

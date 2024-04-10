@@ -28,7 +28,7 @@ static int futex_hash(uint64_t x)
     return x % FUTEX_BUCKETS;
 }
 
-static futex_node_t* get_node(int *val_addr, int create)
+static futex_node_t* get_node(uint32_t *val_addr, int create)
 {
     int key = futex_hash((uint64_t)val_addr);
     list_node_t *head = &futex_buckets[key];
@@ -66,7 +66,7 @@ static futex_node_t* get_node(int *val_addr, int create)
     return NULL;
 }
 
-int do_futex_wait(int *val_addr, int val, const struct timespec *timeout)
+int do_futex_wait(uint32_t *val_addr, uint32_t val, const struct timespec *timeout)
 {
     // acquire(&futex_lock);
     futex_node_t *node = get_node(val_addr,1);
@@ -89,7 +89,7 @@ int do_futex_wait(int *val_addr, int val, const struct timespec *timeout)
     // release(&futex_lock);
 }
 
-int do_futex_wakeup(int *val_addr, int num_wakeup)
+int do_futex_wakeup(uint32_t *val_addr, uint32_t num_wakeup)
 {
     // acquire(&futex_lock);
     futex_node_t *node = get_node(val_addr, 0);
@@ -104,7 +104,7 @@ int do_futex_wakeup(int *val_addr, int num_wakeup)
     // do_scheduler();
     // release(&futex_lock);
 }
-int do_futex_requeue(int *uaddr, int* uaddr2, int num){
+int do_futex_requeue(uint32_t *uaddr, uint32_t* uaddr2, int num){
     futex_node_t *node1 = get_node(uaddr, 0);
     futex_node_t *node2 = get_node(uaddr2, 0);
     // printk("node1: %lx, node2: %lx\n", node1, node2);
@@ -171,21 +171,28 @@ void check_futex_timeout() {
         }
     }
 }
-int do_futex(uint32_t *uaddr, int futex_op, int val,
+int do_futex(uint32_t *uaddr, int futex_op, uint32_t val,
           	const struct timespec *timeout,   /* or: uint32_t val2 */
-         	 int *uaddr2, int val3){
-    if((futex_op & FUTEX_WAKE) == FUTEX_WAKE){
-        do_futex_wakeup((int *)uaddr, val);
-    }else if((futex_op & FUTEX_WAIT) == FUTEX_WAIT){  // always 1
+         	 uint32_t *val2, uint32_t val3){
+    int cmd = futex_op & FUTEX_CMD_MASK;
+    
+    switch (cmd)
+    {
+    case FUTEX_WAKE:
+        do_futex_wakeup(uaddr, val);
+        break;
+    case FUTEX_WAIT:
         if(*uaddr == val){
-            do_futex_wait((int *)uaddr, val, timeout);
+            do_futex_wait(uaddr, val, timeout);
         }else{
             return -EAGAIN;
         }
+        break;
+    
+    case FUTEX_REQUEUE:
+        do_futex_requeue(uaddr, val2, FUTEX_BUCKETS);
     }
-    if((futex_op & FUTEX_REQUEUE) == FUTEX_REQUEUE){
-        do_futex_requeue((int *)uaddr, uaddr2, FUTEX_BUCKETS);
-    }
+
     return 0;
 }
 
@@ -200,6 +207,7 @@ int find_index(int pid){
 
 long do_get_robust_list(int pid, struct robust_list_head **head_ptr, size_t *len_ptr){
    
+    return -ENOSYS;
     if(pid == 0){
         uint64_t cpu_id = get_current_cpu_id();
         pcb_t * current_running = cpu_id == 0 ? current_running_master : current_running_slave; 
@@ -224,14 +232,11 @@ long do_get_robust_list(int pid, struct robust_list_head **head_ptr, size_t *len
 
 
 long do_set_robust_list(struct robust_list_head *head, size_t len){
-    // printk("set:head:%x, len: %d\n", head, len);
     if(len != sizeof(struct robust_list_head)){
         printk("set robust list len is error!\n");
         return -EINVAL;
     }
-    uint64_t cpu_id = get_current_cpu_id();
-    pcb_t * current_running = cpu_id == 0 ? current_running_master : current_running_slave; 
-    int current_index = find_index(current_running->pid);
+    int current_index = find_index(current->pid);
     robust_list[current_index] = head;
     return 0;
 }

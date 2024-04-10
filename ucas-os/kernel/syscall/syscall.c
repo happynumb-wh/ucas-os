@@ -8,7 +8,7 @@ void handle_syscall(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
     regs->sepc = regs->sepc + 4;
     if ((size_t)syscall[regs->a7] == (size_t)handle_miss)
         handle_miss(regs, interrupt, cause);
-    // debug_info(regs, interrupt, cause);
+    debug_info(regs, interrupt, cause);
     regs->a0 = syscall[regs->a7](regs->a0,
                                  regs->a1,
                                  regs->a2,

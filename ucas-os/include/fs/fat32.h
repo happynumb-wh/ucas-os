@@ -342,7 +342,7 @@ int64 fat32_write(fd_num_t fd,const char *buf, uint64_t count);
 int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count);
 /* lseek */
 int64 fat32_lseek(fd_num_t fd, size_t off, uint32_t whence);
-uint64_t fat32_mmap(void *start, size_t len, int prot, int flags, int fd, off_t off);
+uint64_t fat32_mmap(void *start, size_t len, uint64_t prot, uint64_t flags, uint64_t fd, off_t off);
 int64 fat32_munmap(void *start, size_t len);
 
 // final competition

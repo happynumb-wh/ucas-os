@@ -1,6 +1,8 @@
 #include <os/list.h>
 #include <os/mm.h>
 #include <os/sched.h>
+#include <os/smp.h>
+#include <os/mmap.h>
 #include <pgtable.h>
 #include <os/string.h>
 #include <stdio.h>
@@ -70,8 +72,23 @@ uint64_t lazy_brk(uintptr_t ptr)
 
 int do_mprotect(void *addr, size_t len, int prot){
     // printk("do_mprotect need to do.\n");
-    
+    uint64_t page_flag = __prot_to_page_flag(prot);
+    uint64_t clear_mask = ~(_PAGE_READ | _PAGE_WRITE | _PAGE_EXEC);
 
+    uint64_t addr_top = (uint64_t)addr + len;
+    for (uintptr_t i = (uint64_t)addr; i < addr_top; i += PAGE_SIZE)
+    {
+        PTE * pte = get_PTE_of(i, current->pgdir);
+        
+        assert(pte != NULL);
+
+        uint64_t new_pte = ((*pte) & clear_mask); 
+
+        *pte = (new_pte | page_flag); 
+
+        local_flush_tlb_page(i);
+    }
+    
     return 0;
 }
 int do_madvise(void* addr, size_t len, int notice){
