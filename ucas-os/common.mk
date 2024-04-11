@@ -47,7 +47,6 @@ QEMU_OPTS       = -M virt -m 1G \
 QEMU_DEBUG_OPT  = -s -S
 
 
-
 # Entry point
 KERNEL_ENTRYPOINT       = 0xffffffc080200000
 USER_ENTRYPOINT         = 0x10000
