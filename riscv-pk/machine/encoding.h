@@ -748,6 +748,7 @@
 #define MASK_CUSTOM3_RD_RS1  0x707f
 #define MATCH_CUSTOM3_RD_RS1_RS2 0x707b
 #define MASK_CUSTOM3_RD_RS1_RS2  0x707f
+
 #define CSR_FFLAGS 0x1
 #define CSR_FRM 0x2
 #define CSR_FCSR 0x3
@@ -959,6 +960,63 @@
 #define CSR_MHPMCOUNTER29H 0xb9d
 #define CSR_MHPMCOUNTER30H 0xb9e
 #define CSR_MHPMCOUNTER31H 0xb9f
+
+/* U state csrs */
+#define CSR_USTATUS         0x000
+#define CSR_UIE             0x004
+#define CSR_UTVEC           0x005
+#define CSR_USCRATCH        0x040
+#define CSR_UEPC            0x041
+#define CSR_UCAUSE          0x042
+#define CSR_UTVAL           0x043
+#define CSR_UIP             0x044
+
+/* DASICS Main csrs */
+#define CSR_DUMCFG          0x5c0
+#define CSR_DUMBOUNDHI      0x5c1
+#define CSR_DUMBOUNDLO      0x5c2
+
+/* DASICS Lib csrs */
+#define CSR_DLCFG0          0x881
+#define CSR_DLCFG1          0x882
+
+#define CSR_DLBOUND0        0x883
+#define CSR_DLBOUND1        0x884
+#define CSR_DLBOUND2        0x885
+#define CSR_DLBOUND3        0x886
+#define CSR_DLBOUND4        0x887
+#define CSR_DLBOUND5        0x888
+#define CSR_DLBOUND6        0x889
+#define CSR_DLBOUND7        0x88a
+#define CSR_DLBOUND8        0x88b
+#define CSR_DLBOUND9        0x88c
+#define CSR_DLBOUND10       0x88d
+#define CSR_DLBOUND11       0x88e
+#define CSR_DLBOUND12       0x88f
+#define CSR_DLBOUND13       0x890
+#define CSR_DLBOUND14       0x891
+#define CSR_DLBOUND15       0x892
+#define CSR_DLBOUND16       0x893
+#define CSR_DLBOUND17       0x894
+#define CSR_DLBOUND18       0x895
+#define CSR_DLBOUND19       0x896
+#define CSR_DLBOUND20       0x897
+#define CSR_DLBOUND21       0x898
+#define CSR_DLBOUND22       0x899
+#define CSR_DLBOUND23       0x89a
+#define CSR_DLBOUND24       0x89b
+#define CSR_DLBOUND25       0x89c
+#define CSR_DLBOUND26       0x89d
+#define CSR_DLBOUND27       0x89e
+#define CSR_DLBOUND28       0x89f
+#define CSR_DLBOUND29       0x8a0
+#define CSR_DLBOUND30       0x8a1
+#define CSR_DLBOUND31       0x8a2
+
+#define CSR_DMAINCALL       0x8a3
+#define CSR_DRETURNPC       0x8a4
+#define CSR_DFZRETURN       0x8a5
+
 #define CAUSE_MISALIGNED_FETCH 0x0
 #define CAUSE_FETCH_ACCESS 0x1
 #define CAUSE_ILLEGAL_INSTRUCTION 0x2
@@ -974,10 +1032,18 @@
 #define CAUSE_FETCH_PAGE_FAULT 0xc
 #define CAUSE_LOAD_PAGE_FAULT 0xd
 #define CAUSE_STORE_PAGE_FAULT 0xf
-//FDI
-#define FDIUJumpFault              0x18
-#define FDIULoadAccessFault        0x19
-#define FDIUStoreAccessFault       0x1a
+
+/* dasics faults */
+#define CAUSE_DASICS_UFETCH_FAULT   0x18
+#define CAUSE_DASICS_SFETCH_FAULT   0x19
+#define CAUSE_DASICS_ULOAD_FAULT   0x1a
+#define CAUSE_DASICS_SLOAD_FAULT   0x1b
+#define CAUSE_DASICS_USTORE_FAULT  0x1c
+#define CAUSE_DASICS_SSTORE_FAULT  0x1d
+#define CAUSE_DASICS_UECALL_FAULT  0x1e
+#define CAUSE_DASICS_SECALL_FAULT  0x1f
+
+
 #endif
 #ifdef DECLARE_INSN
 DECLARE_INSN(beq, MATCH_BEQ, MASK_BEQ)
@@ -1455,6 +1521,62 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
 DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
 DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
 DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
+
+/* N extension csrs */
+DECLARE_CSR(ustatus, CSR_USTATUS)
+DECLARE_CSR(uie, CSR_UIE)
+DECLARE_CSR(utvec, CSR_UTVEC)
+DECLARE_CSR(uscratch, CSR_USCRATCH)
+DECLARE_CSR(uepc, CSR_UEPC)
+DECLARE_CSR(ucause, CSR_UCAUSE)
+DECLARE_CSR(utval, CSR_UTVAL)
+DECLARE_CSR(uip, CSR_UIP)
+
+/* dasics csrs  */
+DECLARE_CSR(dumcfg, CSR_DUMCFG)
+DECLARE_CSR(dumboundhi, CSR_DUMBOUNDHI)
+DECLARE_CSR(dumboundlo, CSR_DUMBOUNDLO)
+
+DECLARE_CSR(dlcfg0, CSR_DLCFG0)
+DECLARE_CSR(dlcfg1, CSR_DLCFG1)
+
+DECLARE_CSR(dlbound0, CSR_DLBOUND0)
+DECLARE_CSR(dlbound1, CSR_DLBOUND1)
+DECLARE_CSR(dlbound2, CSR_DLBOUND2)
+DECLARE_CSR(dlbound3, CSR_DLBOUND3)
+DECLARE_CSR(dlbound4, CSR_DLBOUND4)
+DECLARE_CSR(dlbound5, CSR_DLBOUND5)
+DECLARE_CSR(dlbound6, CSR_DLBOUND6)
+DECLARE_CSR(dlbound7, CSR_DLBOUND7)
+DECLARE_CSR(dlbound8, CSR_DLBOUND8)
+DECLARE_CSR(dlbound9, CSR_DLBOUND9)
+DECLARE_CSR(dlbound10, CSR_DLBOUND10)
+DECLARE_CSR(dlbound11, CSR_DLBOUND11)
+DECLARE_CSR(dlbound12, CSR_DLBOUND12)
+DECLARE_CSR(dlbound13, CSR_DLBOUND13)
+DECLARE_CSR(dlbound14, CSR_DLBOUND14)
+DECLARE_CSR(dlbound15, CSR_DLBOUND15)
+DECLARE_CSR(dlbound16, CSR_DLBOUND16)
+DECLARE_CSR(dlbound17, CSR_DLBOUND17)
+DECLARE_CSR(dlbound18, CSR_DLBOUND18)
+DECLARE_CSR(dlbound19, CSR_DLBOUND19)
+DECLARE_CSR(dlbound20, CSR_DLBOUND20)
+DECLARE_CSR(dlbound21, CSR_DLBOUND21)
+DECLARE_CSR(dlbound22, CSR_DLBOUND22)
+DECLARE_CSR(dlbound23, CSR_DLBOUND23)
+DECLARE_CSR(dlbound24, CSR_DLBOUND24)
+DECLARE_CSR(dlbound25, CSR_DLBOUND25)
+DECLARE_CSR(dlbound26, CSR_DLBOUND26)
+DECLARE_CSR(dlbound27, CSR_DLBOUND27)
+DECLARE_CSR(dlbound28, CSR_DLBOUND28)
+DECLARE_CSR(dlbound29, CSR_DLBOUND29)
+DECLARE_CSR(dlbound30, CSR_DLBOUND30)
+DECLARE_CSR(dlbound31, CSR_DLBOUND31)
+
+DECLARE_CSR(dmaincall, CSR_DMAINCALL)
+DECLARE_CSR(dretpc, CSR_DRETURNPC)
+DECLARE_CSR(dfzret, CSR_DFZRETURN)
+
 #endif
 #ifdef DECLARE_CAUSE
 DECLARE_CAUSE("misaligned fetch", CAUSE_MISALIGNED_FETCH)
@@ -1472,4 +1594,16 @@ DECLARE_CAUSE("machine_ecall", CAUSE_MACHINE_ECALL)
 DECLARE_CAUSE("fetch page fault", CAUSE_FETCH_PAGE_FAULT)
 DECLARE_CAUSE("load page fault", CAUSE_LOAD_PAGE_FAULT)
 DECLARE_CAUSE("store page fault", CAUSE_STORE_PAGE_FAULT)
+
+/* dascis causes */
+DECLARE_CAUSE("dasics user fetch fault", CAUSE_DASICS_UFETCH_FAULT)
+DECLARE_CAUSE("dasics supervisor fetch fault", CAUSE_DASICS_SFETCH_FAULT)
+DECLARE_CAUSE("dasics user load fault", CAUSE_DASICS_ULOAD_FAULT)
+DECLARE_CAUSE("dasics supervisor load fault", CAUSE_DASICS_SLOAD_FAULT)
+DECLARE_CAUSE("dasics user store fault", CAUSE_DASICS_USTORE_FAULT)
+DECLARE_CAUSE("dasics supervisor store fault", CAUSE_DASICS_SSTORE_FAULT)
+DECLARE_CAUSE("dasics user ecall fault", CAUSE_DASICS_UECALL_FAULT)
+DECLARE_CAUSE("dasics supervisor ecall fault", CAUSE_DASICS_SECALL_FAULT)
+
+
 #endif

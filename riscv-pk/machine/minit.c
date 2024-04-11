@@ -15,9 +15,6 @@
 #include <string.h>
 #include <limits.h>
 
-//#define RISCV_FLASH_START
-#define QSPI_BASE_ADDR    (0x31000000)
-#define REG32(addr)       (*(volatile uint32_t *)(uint32_t)(addr))
 pte_t* root_page_table;
 uintptr_t mem_size;
 volatile uint64_t* mtime;
@@ -26,44 +23,11 @@ size_t plic_ndevs;
 void* kernel_start;
 void* kernel_end;
 
-
-#ifdef RISCV_FLASH_START
-/* trigger flash to exit xip mode*/
-static void qspi_trigger_flash()
-{
-    uint32_t status = 0x1;
-    REG32(QSPI_BASE_ADDR + 0x90) = 0xb5b00001; // read novolatile register
-    while(status){
-        status =  REG32(QSPI_BASE_ADDR + 0x90);
-        status &= 0x1;
-    }
-    REG32(QSPI_BASE_ADDR + 0x90) = 0xb5b00001;
-    while(status){
-        status =  REG32(QSPI_BASE_ADDR + 0x90);
-        status &= 0x1;
-    }
-}
-/*
- *enable flash address writalbe permission
- *exit flash and qspi xip mode
- */
-static void qspi_init()
-{
-    /* enable flash address writable permission */
-    write_csr(0x7c0, 0x80b080f08000000UL);
-    REG32(QSPI_BASE_ADDR) = 0x80180081;// disable xip mode
-    REG32(QSPI_BASE_ADDR + 0x4) = 0x0; // read config register to 0x0
-    qspi_trigger_flash();
-    REG32(QSPI_BASE_ADDR + 0x4) = 0x0a0222ec; // for read config
-    qspi_trigger_flash();
-}
-#endif
-
 static void mstatus_init()
 {
   // Enable FPU
-  //if (supports_extension('D') || supports_extension('F'))
-  //  write_csr(mstatus, MSTATUS_FS);
+  if (supports_extension('D') || supports_extension('F'))
+    write_csr(mstatus, MSTATUS_FS);
 
   // Enable user/supervisor use of perf counters
   if (supports_extension('S'))
@@ -71,23 +35,19 @@ static void mstatus_init()
   if (supports_extension('U'))
     write_csr(mcounteren, -1);
 
-  // Enable software interrupts && external interrupts
-  write_csr(mie, MIP_MSIP | MIP_MEIP);
+  // Enable software interrupts
+  write_csr(mie, MIP_MSIP);
 
   // Disable paging
   if (supports_extension('S'))
     write_csr(sptbr, 0);
-
-#ifdef RISCV_FLASH_START
-    qspi_init();
-#endif
 }
 
 // send S-mode interrupts and most exceptions straight to S-mode
 static void delegate_traps()
 {
   if (!supports_extension('S'))
-    return;
+  	return;
 
   uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
   uintptr_t exceptions =
@@ -98,16 +58,30 @@ static void delegate_traps()
     (1U << CAUSE_STORE_PAGE_FAULT) |
     (1U << CAUSE_USER_ECALL) |
      /* dasics exceptions */
-    (1U << FDIUJumpFault) |
-    (1U << FDIULoadAccessFault) |
-    (1U << FDIUStoreAccessFault);
+    (1U << CAUSE_DASICS_UFETCH_FAULT) |
+    (1U << CAUSE_DASICS_SFETCH_FAULT) |
+    (1U << CAUSE_DASICS_ULOAD_FAULT) |
+    (1U << CAUSE_DASICS_SLOAD_FAULT) |
+    (1U << CAUSE_DASICS_USTORE_FAULT) |
+    (1U << CAUSE_DASICS_SSTORE_FAULT) |
+    (1U << CAUSE_DASICS_UECALL_FAULT) |
+    (1U << CAUSE_DASICS_SECALL_FAULT);
 
   write_csr(mideleg, interrupts);
   write_csr(medeleg, exceptions);
-  assert(read_csr(mideleg) == interrupts);
+  assert((read_csr(mideleg) & interrupts) == interrupts);
   assert(read_csr(medeleg) == exceptions);
 
+  if(!supports_extension('N'))
+	return;
 
+  uintptr_t uexceptions = 
+    (1U << CAUSE_DASICS_UFETCH_FAULT) |
+    (1U << CAUSE_DASICS_ULOAD_FAULT)  |
+    (1U << CAUSE_DASICS_USTORE_FAULT) |
+    (1U << CAUSE_DASICS_UECALL_FAULT);
+  write_csr(sedeleg, uexceptions);
+  assert(read_csr(sedeleg) == uexceptions);
 
 }
 
@@ -190,15 +164,15 @@ static void hart_plic_init()
   if (!plic_ndevs)
     return;
 
-  size_t ie_words = (plic_ndevs + 8 * sizeof(uintptr_t) - 1) /
-		(8 * sizeof(uintptr_t));
+  size_t ie_words = (plic_ndevs + 8 * sizeof(*HLS()->plic_s_ie) - 1) /
+		(8 * sizeof(*HLS()->plic_s_ie));
   for (size_t i = 0; i < ie_words; i++) {
      if (HLS()->plic_s_ie) {
         // Supervisor not always present
-        HLS()->plic_s_ie[i] = ULONG_MAX;
+        HLS()->plic_s_ie[i] = __UINT32_MAX__;
      }
   }
-  *HLS()->plic_m_thresh = 0;
+  *HLS()->plic_m_thresh = 1;
   if (HLS()->plic_s_thresh) {
       // Supervisor not always present
       *HLS()->plic_s_thresh = 0;
@@ -207,8 +181,6 @@ static void hart_plic_init()
 
 static void wake_harts()
 {
-  printm("[DEBUG] harts num: %d hart mask %x disabled hart mask %x\n", MAX_HARTS, hart_mask, disabled_hart_mask);
-  hart_proceed = 1;
   for (int hart = 0; hart < MAX_HARTS; ++hart)
     if ((((~disabled_hart_mask & hart_mask) >> hart) & 1))
       *OTHER_HLS(hart)->ipi = 1; // wakeup the hart
@@ -222,14 +194,11 @@ void init_first_hart(uintptr_t hartid, uintptr_t dtb)
 #endif
 
   // Confirm console as early as possible
-  hart_proceed = 0;
-#ifndef S2C
   query_uart(dtb);
   query_xuart(dtb);
   query_uartlite(dtb);
   query_uart16550(dtb);
   query_htif(dtb);
-#endif
   printm("bbl loader\r\n");
 
   hart_init();
@@ -245,7 +214,6 @@ void init_first_hart(uintptr_t hartid, uintptr_t dtb)
   query_chosen(dtb);
 
   wake_harts();
-  printm("[DEBUG] wake harts done\n");
 
   plic_init();
   hart_plic_init();
@@ -256,7 +224,6 @@ void init_first_hart(uintptr_t hartid, uintptr_t dtb)
 
 void init_other_hart(uintptr_t hartid, uintptr_t dtb)
 {
-  printm("[DEBUG] init other hart\n");
   hart_init();
   hart_plic_init();
   boot_other_hart(dtb);

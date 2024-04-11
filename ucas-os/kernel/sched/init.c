@@ -7,6 +7,7 @@
 #include <os/spinlock.h>
 #include <os/string.h>
 #include <os/elf.h>
+#include <os/kdasics.h>
 #include <fs/file.h>
 #include <fs/fat32.h>
 #include <os/futex.h>
@@ -138,19 +139,17 @@ uintptr_t load_process_memory(const char * path, pcb_t * initpcb)
 
 
         entry_point = fat32_load_elf(         fd, 
-                                    initpcb->pgdir, 
+                                        initpcb, 
                                         &length,
-                                        &dynamic,
-                                        initpcb
+                                        &dynamic
                                     ); 
     } else {        
         ElfFile * elf = &elf_files[elf_id];
 
         entry_point = load_elf(
                                 elf, \
-                                initpcb->pgdir, \
-                                &length,
                                 initpcb,
+                                &length,
                                 &dynamic
                             );        
     }
@@ -733,7 +732,9 @@ void init_dasics_reg(pcb_t *initpcb)
 
     /* get main text */
     pr_regs(initpcb)->dasicsUmainCfg = DASICS_UCFG_ENA;
-	pr_regs(initpcb)->dasicsUmainBoundLO = align8down(pr_mm(initpcb).text_start);
+	pr_regs(initpcb)->dasicsUmainBoundLO = initpcb->dasics_flag == DASICS_DYNAMIC ?  \
+                                            DASICS_LINKER_BASE : 
+                                                align8down(pr_mm(initpcb).text_start);
 	pr_regs(initpcb)->dasicsUmainBoundHI = align8up(pr_mm(initpcb).text_end);    
 
 }

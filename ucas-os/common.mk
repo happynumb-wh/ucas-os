@@ -32,14 +32,14 @@ CONFIG_DEF      = -DDASICS_DEBUG \
 					-DRAMFS \
 					-DPRINT_LOG
 # -DNANHU_V3					
-CFLAGS          = -O0 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
+CFLAGS          = -O2 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
 KERNEL_CFLAGS   = CFLAGS
 USER_CFLGAS     = CFLAGS
 
 
 OBJCOPY_FLAGS 	= --set-section-flags .bss=alloc,contents --set-section-flags .sbss=alloc,contents -O binary
 
-QEMU_OPTS       = -M virt -m 256M \
+QEMU_OPTS       = -M virt -m 1G \
 				  -nographic -kernel $(DIR_BUILD)/kernel.bin \
 				  -drive file=$(PWD)/img/sd.img,if=none,format=raw,id=x0 \
 				  -device virtio-blk-device,drive=x0 \

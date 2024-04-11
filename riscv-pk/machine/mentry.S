@@ -67,18 +67,6 @@ trap_vector:
   mret
 
 1:
-  # Is it an external interrupt?
-  li a0, IRQ_M_EXT * 2
-  bne a0, a1, 1f
-
-  # Yes.  Transfer interrupt to S mode
-  li a0, MIP_MEIP
-  csrc mie, a0
-  li a0, MIP_SEIP
-  csrs mip, a0
-  j .Lmret
-
-1:
   # Is it an IPI?
   li a0, IRQ_M_SOFT * 2
   bne a0, a1, .Lbad_trap
@@ -265,35 +253,7 @@ do_reset:
   li x29, 0
   li x30, 0
   li x31, 0
-#ifdef S2C
-  csrr a0, mhartid
-  beqz a0, copy_and_run
-
-wait_for_copy_and_run:
-  la a4,0x39001008
-  LOAD a4, 0(a4)
-  beqz a4, wait_for_copy_and_run
-  csrr a0, mhartid
-  jal printInfo
-  jal noCopyAndRun
-
-copy_and_run :
-  jal initUart
-  //jal initDDR
-  csrr a0, mhartid
-  jal printInfo
-  jal copyAndRun
-#endif
-  .globl _run
-_run:
-  csrr a0, mhartid
-  jal printInfoRun
-  jal initBSS
   csrw mscratch, x0
-
-  # reset the other core
-  la x1, 0x39001008
-  STORE x2, 0(x1)
 
   # write mtvec and make sure it sticks
   la t0, trap_vector
@@ -319,11 +279,6 @@ _run:
   # wait for an IPI to signal that it's safe to boot
   wfi
 
-  # only start if hart_proceed is set (only for wfi unimplemented)
-  la a4, hart_proceed
-  LOAD a4, 0(a4)
-  beqz a4, .LmultiHart
-
   # masked harts never start
   la a4, disabled_hart_mask
   LOAD a4, 0(a4)
@@ -332,9 +287,9 @@ _run:
   bnez a4, .LmultiHart
 
   # only start if mip is set
-  #csrr a2, mip
-  #andi a2, a2, MIP_MSIP
-  #beqz a2, .LmultiHart
+  csrr a2, mip
+  andi a2, a2, MIP_MSIP
+  beqz a2, .LmultiHart
 
   # make sure our hart id is within a valid range
   fence

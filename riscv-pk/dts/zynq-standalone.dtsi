@@ -5,15 +5,17 @@
 		L2: clint@2000000 {
 			compatible = "riscv,clint0";
 			interrupts-extended = <&L4 3 &L4 7>;
-			reg = <0x0 0x48000000 0x0 0x10000>;
+			reg = <0x0 0x38000000 0x0 0x10000>;
 			reg-names = "control";
-      clock-frequency-mhz = <60>
+      clock-frequency-mhz = <60>;
 		};
 		L14: serial@60000000 {
-      compatible = "xlnx,xuartps", "cdns,uart-r1p8";
-			//interrupt-parent = <&L1>;
-			//interrupts = <3>;
-			reg = <0x0 0x40000000 0x0 0x1000>;
+			compatible = "xlnx,xuartps", "cdns,uart-r1p8";
+			clock-names = "uart_clk", "pclk";
+			clocks = <&L13 23>, <&L13 40>;
+			interrupt-parent = <&L1>;
+			interrupts = <2>;
+			reg = <0x0 0xe0000000 0x0 0x1000>;
 			reg-names = "control";
 		};
 		L1: interrupt-controller@c000000 {
@@ -21,10 +23,10 @@
 			compatible = "riscv,plic0";
 			interrupt-controller;
 			interrupts-extended = <&L4 9>;
-			reg = <0x0 0x4c000000 0x0 0x4000000>;
+			reg = <0x0 0x3c000000 0x0 0x4000000>;
 			reg-names = "control";
 			riscv,max-priority = <7>;
-			riscv,ndev = <1>;
+			riscv,ndev = <3>;
 		};
 		//L10: external-interrupts {
 		//	interrupt-parent = <&L1>;
@@ -36,14 +38,31 @@
 			clocks = <&L13 21>, <&L13 32>;
 			interrupt-parent = <&L1>;
 			interrupts = <1>;
-			reg = <0x0 0x40100000 0x0 0x1000>;
+			reg = <0x0 0xe0100000 0x0 0x1000>;
+		};
+		gem0: ethernet@e000b000 {
+			compatible = "cdns,zynq-gem", "cdns,gem";
+			reg = <0x0 0xe000b000 0x0 0x1000>;
+			interrupts = <3>;
+			interrupt-parent = <&L1>;
+			clocks = <&L13 30>, <&L13 30>, <&L13 13>;
+			clock-names = "pclk", "hclk", "tx_clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy-mode = "rgmii-id";
+			phy-handle = <&ethernet_phy>;
+			ethernet_phy: ethernet-phy@0 {
+				reg = <0>;
+				device_type = "ethernet-phy";
+			};
 		};
 		L12: slcr@F8000000 {
 			u-boot,dm-pre-reloc;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			compatible = "xlnx,zynq-slcr", "syscon", "simple-mfd";
-			reg = <0x0 0x41000000 0x0 0x1000>;
+			reg = <0x0 0xf8000000 0x0 0x1000>;
 			ranges;
 			L13: clkc {
 				u-boot,dm-pre-reloc;
@@ -67,10 +86,14 @@
 		};
 	};
   chosen {
-    bootargs = "root=/dev/mmcblk0p2 rootfstype=ext4 rw rootwait earlycon";
+    bootargs = "console=ttyPS0,115200n8 root=/dev/mmcblk0p2 rootfstype=ext4 rw rootwait earlycon clk_ignore_unused";
+    stdout-path = "serial0:115200n8";
+  };
+  aliases {
+    serial0 = &L14;
   };
 	L11: memory@100000000 {
 		device_type = "memory";
-		reg = <0x0 0x80000000 0x0 0x10000000>;
+		reg = <0x0 0x50000000 0x0 0x10000000>;
 	};
 };

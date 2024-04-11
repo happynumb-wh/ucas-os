@@ -279,7 +279,7 @@ pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t 
         alloc_page_helper(initpcb->user_stack_top - (i + 1) * PAGE_SIZE, \
                                                          initpcb->pgdir, \
                                                          MAP_USER, \
-                                                         _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY
+                                                         _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_EXEC
                          );
     }
     

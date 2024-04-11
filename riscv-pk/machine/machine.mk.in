@@ -33,7 +33,6 @@ machine_c_srcs = \
   uart.c \
   xuart.c \
   uartlite.c \
-  uart_snps.c \
   uart16550.c \
   finisher.c \
   misaligned_ldst.c \

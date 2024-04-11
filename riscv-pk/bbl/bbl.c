@@ -12,7 +12,6 @@
 extern char _payload_start, _payload_end; /* internal payload */
 static const void* entry_point;
 long disabled_hart_mask;
-long hart_proceed;
 
 static uintptr_t dtb_output()
 {
@@ -108,8 +107,7 @@ void boot_other_hart(uintptr_t unused __attribute__((unused)))
 #ifdef BBL_BOOT_MACHINE
   enter_machine_mode(entry, hartid, dtb_output());
 #else /* Run bbl in supervisor mode */
-  //protect_memory();
-  flush_tlb();
+  protect_memory();
   enter_supervisor_mode(entry, hartid, dtb_output());
 #endif
 }
@@ -125,7 +123,6 @@ void boot_loader(uintptr_t dtb)
 #endif
   mb();
   /* Use optional FDT preloaded external payload if present */
-  flush_tlb();
   entry_point = kernel_start ? kernel_start : &_payload_start;
   boot_other_hart(0);
 }

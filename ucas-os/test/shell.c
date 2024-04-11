@@ -29,13 +29,34 @@ int main(void)
     printf("------------------- COMMAND -------------------\n");
     printf("> root@wh: ");
 
-    // char *rwx_argv[] = {
-    //     "dasics-test-rwx",
+    // char *ripe_argv[] = {
+    //     "ripe_attack_generator",
+    //     "-t",
+    //     "direct",
+    //     "-i",
+    //     "shellcode",
+    //     "-c",
+    //     "ret",
+    //     "-l",
+    //     "stack",
+    //     "-f",
+    //     "memcpy",
     //     "-dasics",
     //     (void *)0
     // };
 
-    // sys_exec(rwx_argv[0], 2, rwx_argv);
+
+    char *cactusADM_argv[] = {
+        "cactusADM",
+        "benchADM.par",
+        (void *)0
+    };
+
+    // pid_t pid =  sys_exec(ripe_argv[0], 12, ripe_argv);
+    pid_t pid =  sys_exec(cactusADM_argv[0], 2, cactusADM_argv);
+
+
+    sys_waitpid(pid);
 
     while (1)
     {

@@ -34,7 +34,7 @@ uint64_t krand()
 // Init the zero page
 static void __init_kzero_page()
 {
-    __kzero_page = (void *)allocPage();
+    __kzero_page = (void *)(allocPage() - PAGE_SIZE);
 
     memset(__kzero_page, 0 , PAGE_SIZE);
 
@@ -43,7 +43,7 @@ static void __init_kzero_page()
 // init mem
 uint32_t init_mem(){
     pageRecyc = (page_node_t *)kmalloc(sizeof(page_node_t) * NUM_REC + PAGE_SIZE * 2);
-    kload_buffer = (uint64_t)kmalloc(MB * 4);
+    kload_buffer = (uint64_t)kmalloc(MB * 24);
     __linker_buffer = (void* )kmalloc(MB * 4);
 
     uint64_t memBegin = memCurr;
@@ -95,10 +95,13 @@ void freePage(ptr_t baseAddr)
     // printk("freePage:%lx\n",baseAddr);
     /* alloc page */
     page_node_t *recycle_page = &pageRecyc[GET_MEM_NODE(baseAddr)];
+    
     /* the page has been shared */
     if (--(recycle_page->share_num) != 0) {
         return;
     }
+    if (baseAddr == (uintptr_t)__kzero_page) return;
+
     list_head *freePageList = &freePageManager.free_source_list;    
     list_del(&recycle_page->list);
     list_add(&recycle_page->list, freePageList);
@@ -274,6 +277,9 @@ PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_
     // uint64_t pte_flags = _PAGE_PRESENT | _PAGE_READ  | _PAGE_WRITE    
     //                     | _PAGE_EXEC  | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
     //                       _PAGE_USER);
+    if (kva > (uint64_t)__BSS_END__)
+        pageRecyc[GET_MEM_NODE(kva)].share_num ++;
+
     uint64_t pte_flags = _PAGE_PRESENT | flag
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
                           _PAGE_USER);
@@ -387,7 +393,12 @@ uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir)
     }
     /* third page */
     third_page = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT));
-    freePage(get_kva_of(va, pgdir));
-    third_page[vpn[0]] = 0;  
+
+    if (third_page[vpn[0]])
+    {
+        freePage(pa2kva((get_pfn(third_page[vpn[0]]) << NORMAL_PAGE_SHIFT)));
+        third_page[vpn[0]] = 0;
+    }
+
     return 0;
 }

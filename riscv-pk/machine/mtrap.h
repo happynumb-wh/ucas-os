@@ -3,8 +3,6 @@
 #ifndef _RISCV_MTRAP_H
 #define _RISCV_MTRAP_H
 
-#define S2C
-
 #include "encoding.h"
 
 #ifdef __riscv_atomic
@@ -45,9 +43,9 @@ typedef struct {
   volatile uint64_t* timecmp;
 
   volatile uint32_t* plic_m_thresh;
-  volatile uintptr_t* plic_m_ie;
+  volatile uint32_t* plic_m_ie;
   volatile uint32_t* plic_s_thresh;
-  volatile uintptr_t* plic_s_ie;
+  volatile uint32_t* plic_s_ie;
 } hls_t;
 
 #define MACHINE_STACK_TOP() ({ \
@@ -65,7 +63,7 @@ void printm(const char* s, ...);
 void vprintm(const char *s, va_list args);
 void putstring(const char* s);
 #define assert(x) ({ if (!(x)) die("assertion failed: %s", #x); })
-#define die(str, ...) ({ printm("%s:%d: " str "\n", __FILE__, __LINE__, ##__VA_ARGS__); poweroff(-1); })
+#define die(str, ...) ({ printm("%s:%d: " str "\r\n", __FILE__, __LINE__, ##__VA_ARGS__); poweroff(-1); })
 
 void setup_pmp();
 void enter_supervisor_mode(void (*fn)(uintptr_t), uintptr_t arg0, uintptr_t arg1)

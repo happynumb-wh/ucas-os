@@ -321,11 +321,9 @@ static void clint_prop(const struct fdt_scan_prop *prop, void *extra)
 {
   struct clint_scan *scan = (struct clint_scan *)extra;
   if (!strcmp(prop->name, "compatible") && fdt_string_list_index(prop, "riscv,clint0") >= 0) {
-    printm("found clint\n");
     scan->compat = 1;
   } else if (!strcmp(prop->name, "reg")) {
     fdt_get_address(prop->node->parent, prop->value, &scan->reg);
-    printm("clint addr = %x\n", scan->reg);
   } else if (!strcmp(prop->name, "interrupts-extended")) {
     scan->int_value = prop->value;
     scan->int_len = prop->len;
@@ -358,7 +356,6 @@ static void clint_done(const struct fdt_scan_node *node, void *extra)
     if (hart < MAX_HARTS) {
       hls_t *hls = OTHER_HLS(hart);
       hls->ipi = (void*)((uintptr_t)scan->reg + index * 4);
-      printm("[DEBUG] hls->ipi %p\n", hls->ipi);
       hls->timecmp = (void*)((uintptr_t)scan->reg + 0x4000 + (index * 8));
     }
     value += 4;
@@ -419,9 +416,6 @@ static void plic_prop(const struct fdt_scan_prop *prop, void *extra)
     scan->int_len = prop->len;
   } else if (!strcmp(prop->name, "riscv,ndev")) {
     scan->ndev = bswap(prop->value[0]);
-    if (scan->compat) {
-      printm("riscv,ndev %d\n", scan->ndev);
-    }
   }
 }
 
@@ -456,10 +450,10 @@ static void plic_done(const struct fdt_scan_node *node, void *extra)
     if (hart < MAX_HARTS) {
       hls_t *hls = OTHER_HLS(hart);
       if (cpu_int == IRQ_M_EXT) {
-        hls->plic_m_ie     = (uintptr_t*)((uintptr_t)scan->reg + ENABLE_BASE + ENABLE_SIZE * index);
+        hls->plic_m_ie     = (uint32_t*)((uintptr_t)scan->reg + ENABLE_BASE + ENABLE_SIZE * index);
         hls->plic_m_thresh = (uint32_t*) ((uintptr_t)scan->reg + HART_BASE   + HART_SIZE   * index);
       } else if (cpu_int == IRQ_S_EXT) {
-        hls->plic_s_ie     = (uintptr_t*)((uintptr_t)scan->reg + ENABLE_BASE + ENABLE_SIZE * index);
+        hls->plic_s_ie     = (uint32_t*)((uintptr_t)scan->reg + ENABLE_BASE + ENABLE_SIZE * index);
         hls->plic_s_thresh = (uint32_t*) ((uintptr_t)scan->reg + HART_BASE   + HART_SIZE   * index);
       } else {
         printm("PLIC wired hart %d to wrong interrupt %d", hart, cpu_int);
@@ -572,6 +566,7 @@ void filter_compat(uintptr_t fdt, const char *compat)
   fdt_scan(fdt, &cb);
 }
 
+
 //////////////////////////////////////////// CHOSEN SCAN ////////////////////////////////////////
 
 struct chosen_scan {
@@ -673,6 +668,7 @@ static bool hart_filter_mask(const struct hart_filter *filter)
 #else
   if (!strcmp(filter->mmu_type, "riscv,sv39")) return false;
   if (!strcmp(filter->mmu_type, "riscv,sv48")) return false;
+  if (!strcmp(filter->mmu_type, "riscv,sv57")) return false;
 #endif
   printm("hart_filter_mask saw unknown hart type: status=\"%s\", mmu_type=\"%s\"\n",
          filter->status, filter->mmu_type);

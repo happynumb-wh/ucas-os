@@ -18,30 +18,44 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-extern void __am_uartlite_putchar(unsigned char data);
-extern unsigned char __am_uartlite_getchar();
+static void show_regs(uintptr_t* regs)
+{
+   static char* reg_name[] = {
+	" zero"," ra  "," sp  "," gp  ",
+	" tp  "," t0  "," t1  "," t2  ",
+	" s0  "," s1  "," a0  "," a1  ",
+	" a2  "," a3  "," a4  "," a5  ",
+	" a6  "," a7  "," s2  "," s3  ",
+	" s4  "," s5  "," s6  "," s7  ",
+	" s8  "," s9  "," s10 "," s11 ",
+	" t3  "," t4  "," t5  "," t6  "};
+  for (int i = 1; i < 32; ++i) {
+	printm("%s: %p", reg_name[i], regs[i]);
+	if ((i % 3) == 0) printm("\r\n");
+  }
+  printm("\r\n");
+}
 
 void __attribute__((noreturn)) bad_trap(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
 {
+  show_regs(regs);
   die("machine mode: unhandlable trap %d @ %p", read_csr(mcause), mepc);
 }
 
 static uintptr_t mcall_console_putchar(uint8_t ch)
 {
-    if (uart) {
-        uart_putchar(ch);
-    } else if (xuart) {
-        xuart_putchar(ch);
-    } else if (uartlite) {
-        uartlite_putchar(ch);
-    } else if (uart16550) {
-        uart16550_putchar(ch);
-    } else if (htif) {
-        htif_console_putchar(ch);
-    } else {
-        __am_uartlite_putchar(ch);
-    }
-    return 0;
+  if (uart) {
+    uart_putchar(ch);
+  } else if (xuart) {
+    xuart_putchar(ch);
+  } else if (uartlite) {
+    uartlite_putchar(ch);
+  } else if (uart16550) {
+    uart16550_putchar(ch);
+  } else if (htif) {
+    htif_console_putchar(ch);
+  }
+  return 0;
 }
 
 void putstring(const char* s)
@@ -86,8 +100,8 @@ static uintptr_t mcall_console_getchar()
     return uart16550_getchar();
   } else if (htif) {
     return htif_console_getchar();
-  } else { /* snps */
-    return __am_uartlite_getchar(); 
+  } else {
+    return '\0';
   }
 }
 
@@ -106,13 +120,6 @@ static uintptr_t mcall_set_timer(uint64_t when)
   *HLS()->timecmp = when;
   clear_csr(mip, MIP_STIP);
   set_csr(mie, MIP_MTIP);
-  return 0;
-}
-
-static uintptr_t mcall_plic_eoi()
-{
-  clear_csr(mip, MIP_SEIP);
-  set_csr(mie, MIP_MEIP);
   return 0;
 }
 
@@ -136,11 +143,8 @@ static void send_ipi_many(uintptr_t* pmask, int event)
   uint32_t incoming_ipi = 0;
   for (uintptr_t i = 0, m = mask; m; i++, m >>= 1)
     if (m & 1)
-      while (*OTHER_HLS(i)->ipi) {
-        // incoming_ipi |= atomic_swap(HLS()->ipi, 0);
-        incoming_ipi |= *HLS()->ipi;
-        *HLS()->ipi = 0;
-      }
+      while (*OTHER_HLS(i)->ipi)
+        incoming_ipi |= atomic_swap(HLS()->ipi, 0);
 
   // if we got an IPI, restore it; it will be taken after returning
   if (incoming_ipi) {
@@ -189,8 +193,6 @@ send_ipi:
       retval = mcall_set_timer(arg0);
 #endif
       break;
-    case SBI_PLIC_EOI:
-      retval = mcall_plic_eoi();
     default:
       retval = -ENOSYS;
       break;
@@ -250,7 +252,7 @@ fail:
 void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
 {
   uintptr_t mcause = read_csr(mcause);
-
+ 
   switch (mcause)
   {
     case CAUSE_LOAD_PAGE_FAULT:

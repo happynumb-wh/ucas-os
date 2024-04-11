@@ -40,7 +40,7 @@
 #define UTIME_NOW  0x3fffffff
 #define UTIME_OMIT 0x3ffffffe
 
-#define TIME_BASE 10000000
+#define TIME_BASE 50000000
 
 typedef void (*TimerCallFunc)(void *parameter);
 static LIST_HEAD(timer_master);

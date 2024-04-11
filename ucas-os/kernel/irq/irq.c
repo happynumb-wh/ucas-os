@@ -24,7 +24,7 @@ void reset_irq_timer()
     check_sleeping();
     check_futex_timeout();
     itimer_check();
-    sbi_set_timer(get_ticks() + time_base / 200);
+    sbi_set_timer(get_ticks() + time_base);
     do_scheduler();
 }
 
@@ -63,7 +63,7 @@ void handle_page_fault_inst(regs_context_t *regs, uint64_t stval, uint64_t cause
     // printk("inst page fault: %lx\n",stval);
     uint64_t fault_addr = stval;
     if(check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD) == ALLOC_NO_AD){
-        local_flush_tlb_all();
+        local_flush_tlb_page(stval);
         return;
     }  
     printk(">[Error] can't resolve the inst page fault with 0x%x!\n",stval);
@@ -74,10 +74,13 @@ void handle_page_fault_inst(regs_context_t *regs, uint64_t stval, uint64_t cause
 void handle_page_fault_load(regs_context_t *regs, uint64_t stval, uint64_t cause){
     // printk("load page fault: %lx\n",stval);
     uint64_t fault_addr = stval;   
+    PTE * pte = get_PTE_of(stval, current->pgdir);
+    if (pte)
+        printk("load PTE: 0x%lx, stval: 0x%lx\n", *pte, stval);   
     switch (check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD))
     {
     case ALLOC_NO_AD:
-        local_flush_tlb_all();
+        local_flush_tlb_page(stval);
         break;
     case IN_SD:
         printk("> Attention: the 0x%lx addr was swapped to SD! the origin physical addr is 0x%lx\n", 
@@ -87,10 +90,8 @@ void handle_page_fault_load(regs_context_t *regs, uint64_t stval, uint64_t cause
         if (!is_legal_addr(stval))
             handle_other(regs, stval, cause);
         alloc_page_helper(fault_addr, current_running->pgdir, MAP_USER, \
-                        _PAGE_EXEC | _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED);
-        // load_lazy_mmap(fault_addr);
+                        _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_ACCESSED);
         current_running->pge_num++;
-        local_flush_tlb_all();
         break;              
     default:
         break;
@@ -103,12 +104,13 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
     // if (is_kva(stval))
     //     return;
     uint64_t fault_addr = stval;
-    PTE * pte = get_PTE_of(stval, current->pgdir);
-    printk("PTE: 0x%lx, stval: 0x%lx\n", *pte, stval);   
+    // PTE * pte = get_PTE_of(stval, current->pgdir);
+    // if (pte)
+    //     printk("store sepc: 0x%lx, PTE: 0x%lx, stval: 0x%lx\n",regs->sepc, *pte, stval);   
     switch (check_W_SD_and_set_AD(fault_addr, current_running->pgdir, STORE))
     {
     case ALLOC_NO_AD:
-        local_flush_tlb_all();
+        local_flush_tlb_page(stval);
         break;
     case IN_SD:
         break; 
@@ -116,14 +118,13 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
         break; 
     case NO_W:
         deal_no_W(fault_addr);
-        local_flush_tlb_all();
+        local_flush_tlb_page(stval);
         break;
     case NO_ALLOC:
         alloc_page_helper(fault_addr, current_running->pgdir, MAP_USER, \
-                        _PAGE_EXEC | _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED);
+                        _PAGE_EXEC | _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY);
         // load_lazy_mmap(fault_addr);
         current_running->pge_num++;  
-        local_flush_tlb_all();
         break;      
     default:
         break;

@@ -25,20 +25,24 @@ uint64_t do_brk(uintptr_t ptr)
     }
     else if (ptr < current_running->edata) 
     {
-        for (uintptr_t cur_page = ptr; cur_page < current_running->edata; cur_page += NORMAL_PAGE_SIZE){
-            if (get_kva_of(cur_page,current_running->pgdir) != 0){
-                free_page_helper(cur_page, current_running->pgdir);
-                local_flush_tlb_page(cur_page);
-            }     
-        }
+        // for (uintptr_t cur_page = ptr; cur_page < current_running->edata; cur_page += PAGE_SIZE){
+
+        //     if (get_kva_of(cur_page,current_running->pgdir) != 0){
+        //         free_page_helper(cur_page, current_running->pgdir);
+        //         local_flush_tlb_page(cur_page);
+        //     }     
+        // }
+        // Never realloc
         current_running->edata = ptr;
         return current_running->edata;
     } else
     {
-        for (uintptr_t my_ptr = current_running->edata; my_ptr < ptr; my_ptr += NORMAL_PAGE_SIZE)
+        for (uintptr_t cur_page = ROUND(current_running->edata, PAGE_SIZE); cur_page < ptr; cur_page += PAGE_SIZE)
         {
-            alloc_page_helper(my_ptr, current_running->pgdir, MAP_USER, _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC);
-            local_flush_tlb_page(my_ptr);
+            if (get_kva_of(cur_page, current->pgdir)) continue;
+            // alloc_page_helper(cur_page, current_running->pgdir, MAP_USER, _PAGE_READ | _PAGE_WRITE);
+            alloc_page_point_phyc(cur_page, current->pgdir, (uint64_t)__kzero_page, MAP_USER, _PAGE_READ);
+            local_flush_tlb_page(cur_page);
         }
         current_running->edata = ptr;
         return current_running->edata;

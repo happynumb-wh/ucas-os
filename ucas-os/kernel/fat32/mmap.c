@@ -139,42 +139,53 @@ end:
 
 int64 fat32_munmap(void *start, size_t len)
 {
-    printk("[munmap] start:0x%x, len: 0x%x\n", start, len);
-    for (int i = 0; i < MAX_FILE_NUM; i++)
-    {
-        if (current_running->pfd[i].used && current_running->pfd[i].mmap.used && current_running->pfd[i].mmap.start == start){
-            fd_t *nfd = &current_running->pfd[i];
-            int old_seek = fat32_lseek(nfd->fd_num,0,SEEK_CUR);
-            fat32_lseek(nfd->fd_num,nfd->mmap.off,SEEK_SET);
-            // fat32_lseek(current_running->pfd[i].fd_num, current_running->pfd[i].mmap.off + len,SEEK_SET);
-            fat32_write(current_running->pfd[i].fd_num, start, len);
-            if (nfd->mmap.start == start && nfd->mmap.len == len) {
-                nfd->mmap.used = 0;
-                }
-            else if (nfd->mmap.start == start && nfd->mmap.len > len){
-                nfd->mmap.start += len;
-                nfd->mmap.len -= len;
-                nfd->mmap.off += len;
-            }
-            else printk("[munmap] the munmap in the middle / tail of the mapzone is not supported\n");
-            fat32_lseek(nfd->fd_num,old_seek,SEEK_SET);
-            // freepage
-            for (void *cur_page = start; cur_page < start + len; cur_page += NORMAL_PAGE_SIZE){
-                if (get_kva_of((uintptr_t)cur_page,current_running->pgdir) != 0){
-                    // printk("freepage:%lx\n", cur_page);
-                    free_page_helper((uintptr_t)cur_page, current_running->pgdir);
-                }
-            }
-            if (current_running->edata == (uint64_t)start + len) current_running->edata = (uint64_t)start;
-            if (nfd->used == 2) {
-                fat32_close(nfd->fd_num);
-            }
-            // printk("[munmap] return\n");
-            return 0;
-        }
-    }
+    printk("[munmap] start:0x%lx, len: 0x%lx\n", start, len);
+    // for (int i = 0; i < MAX_FILE_NUM; i++)
+    // {
+    //     if (current_running->pfd[i].used && current_running->pfd[i].mmap.used && current_running->pfd[i].mmap.start == start){
+    //         fd_t *nfd = &current_running->pfd[i];
+    //         int old_seek = fat32_lseek(nfd->fd_num,0,SEEK_CUR);
+    //         fat32_lseek(nfd->fd_num,nfd->mmap.off,SEEK_SET);
+    //         // fat32_lseek(current_running->pfd[i].fd_num, current_running->pfd[i].mmap.off + len,SEEK_SET);
+    //         fat32_write(current_running->pfd[i].fd_num, start, len);
+    //         if (nfd->mmap.start == start && nfd->mmap.len == len) {
+    //             nfd->mmap.used = 0;
+    //             }
+    //         else if (nfd->mmap.start == start && nfd->mmap.len > len){
+    //             nfd->mmap.start += len;
+    //             nfd->mmap.len -= len;
+    //             nfd->mmap.off += len;
+    //         }
+    //         else printk("[munmap] the munmap in the middle / tail of the mapzone is not supported\n");
+    //         fat32_lseek(nfd->fd_num,old_seek,SEEK_SET);
+    //         // freepage
+    //         for (void *cur_page = start; cur_page < start + len; cur_page += NORMAL_PAGE_SIZE){
+    //             if (get_kva_of((uintptr_t)cur_page,current_running->pgdir) != 0){
+    //                 // printk("freepage:%lx\n", cur_page);
+    //                 free_page_helper((uintptr_t)cur_page, current_running->pgdir);
+    //             }
+    //         }
+    //         if (current_running->edata == (uint64_t)start + len) current_running->edata = (uint64_t)start;
+    //         if (nfd->used == 2) {
+    //             fat32_close(nfd->fd_num);
+    //         }
+    //         // printk("[munmap] return\n");
+    //         return 0;
+    //     }
+    // }
     // printk("[munmap] munmap invalid\n");
-    return -EINVAL;
+
+    uintptr_t end = (uintptr_t)start + len;
+
+    for (uintptr_t i = (uintptr_t)start; i < end; i += PAGE_SIZE)
+    {
+        free_page_helper(i, current->pgdir);
+    }
+
+    return 0;
+    
+
+    // return -EINVAL;
 }
 void *fat32_mremap(void *old_address, size_t old_size, size_t new_size, int flags, void *new_address){
     // printk("[mremap] old_addr = 0x%lx, old_size = %d, new_addr = 0x%lx, new_size = %d, flags = 0x%x\n",old_address,old_size,new_address,new_size,flags);

@@ -51,7 +51,7 @@ static void __init setup_vm(uintptr_t entry)
     // map all physical memory
     PTE *early_pgdir = (PTE *)PGDIR_PA;
     for (uint64_t kva = 0xffffffc080000000lu;
-         kva < 0xffffffc090000000lu; kva += 0x200000lu) {
+         kva < 0xffffffc0c0000000lu; kva += 0x200000lu) {
         map_page(KERNEL_PAGE, kva, kva2pa(kva), early_pgdir);
     }
     // map boot address

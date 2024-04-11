@@ -4105,7 +4105,7 @@ if test "${with_mem_start+set}" = set; then :
 
 else
 
-   MEM_START=0x80000000
+   MEM_START=0x60000000
 
 
 fi
