@@ -148,6 +148,7 @@ _save_context:
 
 .macro SAVE_N_EXTENSION
   addi sp, sp, -(OFFSET_N_EXTENSION)
+#ifdef DASICS
 
 #ifndef NANHU_V3
   csrr t0, CSR_USTATUS
@@ -175,10 +176,14 @@ _save_context:
   sd t0, OFFSET_REG_UIP(sp)   
 #endif
 
+#endif
 .endm
 
 
 .macro RESTORE_N_EXTENSION
+
+#ifdef DASICS
+
 #ifndef NANHU_V3
   ld t0, OFFSET_REG_USTATUS(sp)
   csrw CSR_USTATUS, t0 
@@ -205,6 +210,8 @@ _save_context:
   csrw CSR_UIP, t0
 #endif
 
+#endif
+
   addi sp, sp, OFFSET_N_EXTENSION
 .endm
 
@@ -212,6 +219,7 @@ _save_context:
 .macro SAVE_DASICS
   addi sp, sp, -(OFFSET_DASICS)
 
+#ifdef DASICS
   csrr t0, CSR_DUMCFG
   sd t0, OFFSET_DASICSUMAINCFG(sp)
 
@@ -360,10 +368,12 @@ _save_context:
   csrr t0, CSR_DJCFG
   sd t0, OFFSET_DASICS_DJCFG(sp)
 
+#endif
 .endm
 
 
 .macro RESTORE_DASICS
+#ifdef DASICS
   ld t0, OFFSET_DASICSUMAINCFG(sp)
   csrw CSR_DUMCFG, t0
 
@@ -512,6 +522,8 @@ _save_context:
 
   ld t0, OFFSET_DASICS_DJCFG(sp)
   csrw CSR_DJCFG, t0
+
+#endif
 
   addi sp, sp, OFFSET_DASICS
 .endm
