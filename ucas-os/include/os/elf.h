@@ -289,39 +289,5 @@ int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset
 typedef Elf64_Xword elf_addr_t;
 #define MAX_PARAM_NUM 64
 
-static inline uint32_t set_aux_vec(aux_elem_t *aux_vec, ELF_info_t *elf, uintptr_t file_pointer, uintptr_t random_ptr)
-{
-    uint32_t index = 0;
-#define NEW_AUX_ENT(id0, val0) \
-    aux_vec[index].id = id0; \
-    aux_vec[index++].val = val0; \
-    // 0x21
-    NEW_AUX_ENT(0x28, 0);
-    NEW_AUX_ENT(0x29, 0);
-    NEW_AUX_ENT(0x2a, 0);
-    NEW_AUX_ENT(0x2b, 0);
-    NEW_AUX_ENT(0x2c, 0);
-    NEW_AUX_ENT(0x2d, 0);
 
-    // NEW_AUX_ENT(AT_SYSINFO_EHDR, 0x3fc2dee000);     // 0x21
-    NEW_AUX_ENT(AT_HWCAP, 0x112d);                  // 0x10
-    NEW_AUX_ENT(AT_PAGESZ, NORMAL_PAGE_SIZE);       // 0x06
-    NEW_AUX_ENT(AT_CLKTCK, 0x64);                   // 0x11
-    NEW_AUX_ENT(AT_PHDR, elf->text_begin + elf->phoff);               // 0x03
-    NEW_AUX_ENT(AT_PHENT, elf->phent);              // 0x04
-    NEW_AUX_ENT(AT_PHNUM, elf->phnum);              // 0x05
-    NEW_AUX_ENT(AT_BASE, DYNAMIC_VADDR_PFFSET);     // 0x07                       // 0x07
-    NEW_AUX_ENT(AT_FLAGS, 0);                       // 0x08
-    NEW_AUX_ENT(AT_ENTRY, elf->entry);              // 0x09
-    NEW_AUX_ENT(AT_UID, 0);                         // 0x0b
-    NEW_AUX_ENT(AT_EUID, 0);                        // 0x0c
-    NEW_AUX_ENT(AT_GID, 0);                         // 0x0d
-    NEW_AUX_ENT(AT_EGID, 0);                        // 0x0e
-    NEW_AUX_ENT(AT_SECURE, 0);                      // 0x17
-    NEW_AUX_ENT(AT_RANDOM, random_ptr);             // 0x19
-    NEW_AUX_ENT(AT_EXECFN, file_pointer);           // 0x1f
-    NEW_AUX_ENT(0, 0);
-#undef NEW_AUX_ENT
-    return index;
-}
 #endif  // _ELF_H
