@@ -46,14 +46,16 @@ int main(void)
     // };
 
 
-    char *cactusADM_argv[] = {
-        "cactusADM",
-        "benchADM.par",
+    char *hmmer_argv[] = {
+        "hmmer",
+        "nph3.hmm",
+        "swiss41",
+        "-dasics",
         (void *)0
     };
 
     // pid_t pid =  sys_exec(ripe_argv[0], 12, ripe_argv);
-    pid_t pid =  sys_exec(cactusADM_argv[0], 2, cactusADM_argv);
+    pid_t pid =  sys_exec(hmmer_argv[0], 4, hmmer_argv);
 
 
     sys_waitpid(pid);

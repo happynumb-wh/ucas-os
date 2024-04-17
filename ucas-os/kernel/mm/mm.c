@@ -238,9 +238,18 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
     // uint64_t pte_flags = _PAGE_PRESENT | _PAGE_READ  | _PAGE_WRITE    
     //                     | _PAGE_EXEC  | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
     //                       _PAGE_USER); 
+#ifdef DASICS_DEBUG_EXCEPTION
+    uint64_t pte_flags = flag
+                          | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
+                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY) );
+
+#else
+
     uint64_t pte_flags = _PAGE_PRESENT | flag
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
-                          _PAGE_USER);
+                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY) );
+#endif
+
     /* final page */
     return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 0) | (va & (uint64_t)0x0fff));
 
@@ -280,9 +289,17 @@ PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_
     if (kva > (uint64_t)__BSS_END__)
         pageRecyc[GET_MEM_NODE(kva)].share_num ++;
 
+#ifdef DASICS_DEBUG_EXCEPTION
+    uint64_t pte_flags = flag
+                          | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
+                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY));
+
+#else
     uint64_t pte_flags = _PAGE_PRESENT | flag
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
-                          _PAGE_USER);
+                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY));
+#endif
+
     set_attribute(&third_page[vpn[0]], pte_flags);
     return &third_page[vpn[0]];     
 }
@@ -364,7 +381,9 @@ uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode){
         }
     }    
     else{
-            return NO_ALLOC;
+        if (third_page[vpn[0]] != 0)
+            return DASICS_NO_V;
+        return NO_ALLOC;
     }
     return ALLOC_NO_AD;
 }

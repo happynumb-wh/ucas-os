@@ -42,8 +42,9 @@ uint64_t do_brk(uintptr_t ptr)
             if (get_kva_of(cur_page, current->pgdir)) continue;
             // alloc_page_helper(cur_page, current_running->pgdir, MAP_USER, _PAGE_READ | _PAGE_WRITE);
             alloc_page_point_phyc(cur_page, current->pgdir, (uint64_t)__kzero_page, MAP_USER, _PAGE_READ);
-            local_flush_tlb_page(cur_page);
+            // local_flush_tlb_page(cur_page);
         }
+        local_flush_tlb_all();
         current_running->edata = ptr;
         return current_running->edata;
     }
@@ -90,8 +91,10 @@ int do_mprotect(void *addr, size_t len, int prot){
 
         *pte = (new_pte | page_flag); 
 
-        local_flush_tlb_page(i);
+        // local_flush_tlb_page(i);
     }
+    local_flush_tlb_all();
+
     
     return 0;
 }

@@ -17,29 +17,31 @@ static uintptr_t __mmap_addr(uint64_t ptr, uint64_t size, uint64_t prot)
         end = start + size;
         pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE);        
     } else 
-        end = start + size;
+    {
+        end = start + size;        
+        if (pr_mm(current).mmap_base <= end)
+            pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE); 
+    }
+
 
 
     for (uint64_t i = start; i < end; i += PAGE_SIZE)
     {
-        uintptr_t exits_page;
+        uintptr_t exits_page = get_kva_of(i, current->pgdir);
         // assert(get_kva_of(i, current->pgdir) == 0);
-        if ((exits_page =  get_kva_of(i, current->pgdir)) != 0)
+        if (exits_page)
         {
-            // Free this page
-            freePage(exits_page);
-            // Point to zero page
-            alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \
-                            __prot_to_page_flag(prot) & (~_PAGE_WRITE));
+            memset((void *)exits_page, 0, PAGE_SIZE);
+            do_mprotect((void *)start, PAGE_SIZE, prot);                            
 
         } else 
             alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \
                             __prot_to_page_flag(prot) & (~_PAGE_WRITE));
 
 
-        local_flush_tlb_page(i);
+        // local_flush_tlb_page(i);
     }
-
+    local_flush_tlb_all();
     return start;
 }
 
@@ -55,7 +57,11 @@ static uintptr_t __mmap_addr_fd(uint64_t ptr, uint64_t fd, uint64_t off, uint64_
         end = start + size;
         pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE);        
     } else 
-        end = start + size;
+    {
+        end = start + size;        
+        if (pr_mm(current).mmap_base < end)
+            pr_mm(current).mmap_base = ROUND(end, PAGE_SIZE); 
+    }
 
     int old_seek = fat32_lseek(fd, 0, SEEK_CUR);
 
@@ -64,13 +70,14 @@ static uintptr_t __mmap_addr_fd(uint64_t ptr, uint64_t fd, uint64_t off, uint64_
     for (uint64_t i = start; i < end; i += PAGE_SIZE)
     {
         // assert(get_kva_of(i, current->pgdir) == 0);
-        
-        if (get_kva_of(i, current->pgdir))
+        uintptr_t exits_page = get_kva_of(i, current->pgdir);
+        uint64_t max_size = end - i;
+        if (exits_page)
         {
+            fat32_read(fd, (void *)exits_page, PAGE_SIZE);
             do_mprotect((void *)i, PAGE_SIZE, prot);
         } else
         {
-            uint64_t max_size = end - i;
 
             char * buffer =  alloc_page_helper(i, current->pgdir, MAP_USER, \
                                 __prot_to_page_flag(prot));  
@@ -78,8 +85,10 @@ static uintptr_t __mmap_addr_fd(uint64_t ptr, uint64_t fd, uint64_t off, uint64_
             fat32_read(fd, buffer, min(PAGE_SIZE, max_size));
         }
 
-        local_flush_tlb_page(i);
+        // local_flush_tlb_page(i);
     }    
+    local_flush_tlb_all();
+
 
     fat32_lseek(fd, old_seek, SEEK_SET);
 

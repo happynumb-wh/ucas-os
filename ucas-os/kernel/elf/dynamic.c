@@ -24,7 +24,8 @@ uintptr_t load_connector(pcb_t *initpcb, const char * path, uintptr_t offset)
     Elf64_Half ph_entry_count;
 
     // load linker
-    if (strcmp("/lib/ld-linux-riscv64-lp64d.so.1", path))
+    if (strcmp("/lib/ld-linux-riscv64-lp64d.so.1", path) && \
+            strcmp("/lib/ld-linux-riscv64-lp64.so.1", path))
     {
         printk("[ERROR]: Usupport %s\n", path);
         return -ENOENT;        

@@ -31,6 +31,7 @@ static LIST_HEAD(shareMemKey);
 #define IN_SD 2
 #define IN_SD_NO_W 3
 #define NO_W 4
+#define DASICS_NO_V 5
 
 /* Rounding; only works for n = power of two */
 #define ROUND(a, n)     (((((uint64_t)(a))+(n)-1)) & ~((n)-1))
@@ -41,7 +42,7 @@ static LIST_HEAD(shareMemKey);
 #define MAX_PAGE_NUM 12
 
 // Kernel mem will be 64 MB
-#define KERNEL_END  (KERNEL_BASE + 768 * MB)
+#define KERNEL_END  (KERNEL_BASE + 156 * MB)
 
 // Leave 32MB for the kernel bss_end
 #define INIT_KERNEL_STACK ((uintptr_t)(__BSS_END__))

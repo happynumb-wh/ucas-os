@@ -95,8 +95,10 @@ _save_context:
   // priviledge register
   ld t0, OFFSET_REG_SSTATUS(sp)
   ld t1, OFFSET_REG_SEPC(sp)
+  ld t2, OFFSET_REG_SSCRATCH(sp)
   csrw CSR_SSTATUS, t0
   csrw CSR_SEPC, t1
+  csrw CSR_SSCRATCH, t2
 
   // return address
   ld ra, OFFSET_REG_RA(sp)
@@ -609,7 +611,6 @@ ENTRY(ret_from_exception)
   addi t0, t0, OFFSET_DASICS
   addi t0, t0, OFFSET_N_EXTENSION
   sd t0, PCB_KERNEL_SP(tp)
-  csrw CSR_SSCRATCH, tp
 
 restore:
   /* call unlock kernel */

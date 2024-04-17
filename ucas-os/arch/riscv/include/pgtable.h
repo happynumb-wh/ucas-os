@@ -222,7 +222,7 @@ static inline PTE * get_PTE_of(uintptr_t va, uintptr_t pgdir_va){
     if (get_attribute(second_page[vpn[2]]) & node_flag)
         return &second_page[vpn[0]];    
 
-    if (third_page[vpn[0]] == 0 || (third_page[vpn[0]] & _PAGE_PRESENT) == 0)
+    if (third_page[vpn[0]] == 0/* || (third_page[vpn[0]] & _PAGE_PRESENT) == 0*/)
         return NULL;    
     return &third_page[vpn[0]];    
 }

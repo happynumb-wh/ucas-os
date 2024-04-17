@@ -6,12 +6,14 @@
 #include <os/mm.h>
 #include <os/kdasics.h>
 #include <os/futex.h>
+#include <asm/regs.h>
 #include <stdio.h>
 #include <assert.h>
 #include <sbi.h>
 #include <screen.h>
 #include <csr.h>
 #include <sdcard.h>
+
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
 uintptr_t riscv_dtb;
@@ -32,24 +34,36 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
     // TODO interrupt handler.
     // call corresponding handler by the value of `cause`
+    regs_context_t * prev_context = current->save_context;
+    // reg_t prev_sp =  current->kernel_sp;
     current->save_context = regs;
-    current->kernel_sp = (uint64_t)regs;
-    update_utime();
+    // current->kernel_sp = (uint64_t)regs;
+    if ((regs->sstatus & SR_SPP) == 0)
+        update_utime();
     if ((cause & SCAUSE_IRQ_FLAG) == SCAUSE_IRQ_FLAG) 
     {
         irq_table[regs->scause & ~(SCAUSE_IRQ_FLAG)](regs, stval, cause);
     } else
     {
         // No nested exception
-        if ((regs->sstatus & SR_SPP) != 0 && current->pid)
-        {
+        // if ((regs->sstatus & SR_SPP) != 0 && current->pid)
+        // {
 
-            handle_other(regs, stval, cause);
+        //     handle_other(regs, stval, cause);
 
-        }
+        // }
         // printk("[EXCEPTION]: name: %s, sepc: 0x%lx, stval: 0x%lx, scause: 0x%lx\n",current->name, regs->sepc, regs->sbadaddr, regs->scause);
         exc_table[regs->scause](regs, stval, cause);
     }
+    // No nested exception
+    if ((regs->sstatus & SR_SPP) != 0 && current->pid)
+    {
+        regs->sscratch = 0;
+        current->save_context = prev_context;
+        
+        // current->kernel_sp = (uint64_t)prev_sp;        
+    }
+
     update_stime();
     // printk("interrupt end\n");
 }
@@ -62,25 +76,37 @@ void handle_int(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
 void handle_page_fault_inst(regs_context_t *regs, uint64_t stval, uint64_t cause){
     // printk("inst page fault: %lx\n",stval);
     uint64_t fault_addr = stval;
-    if(check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD) == ALLOC_NO_AD){
-        local_flush_tlb_page(stval);
-        return;
-    }  
-    printk(">[Error] can't resolve the inst page fault with 0x%x!\n",stval);
-    handle_other(regs,stval,cause);
+    switch(check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD))
+    {
+    case ALLOC_NO_AD:
+        // local_flush_tlb_page(stval);
+        break;
+    case DASICS_NO_V:
+        PTE * pte = get_PTE_of(fault_addr, current->pgdir);
+        assert(pte != NULL);
+        *pte = *pte | _PAGE_PRESENT;
+        break;
+    default: 
+        printk(">[Error] can't resolve the inst page fault with 0x%x!\n",stval);
+        handle_other(regs,stval,cause);        
+        break;
+    };
+
+    local_flush_tlb_all();
+
 }
 
 
 void handle_page_fault_load(regs_context_t *regs, uint64_t stval, uint64_t cause){
     // printk("load page fault: %lx\n",stval);
     uint64_t fault_addr = stval;   
-    PTE * pte = get_PTE_of(stval, current->pgdir);
-    if (pte)
-        printk("load PTE: 0x%lx, stval: 0x%lx\n", *pte, stval);   
+    // PTE * pte = get_PTE_of(stval, current->pgdir);
+    // if (pte)
+    //     printk("load PTE: 0x%lx, stval: 0x%lx\n", *pte, stval);   
     switch (check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD))
     {
     case ALLOC_NO_AD:
-        local_flush_tlb_page(stval);
+        // local_flush_tlb_page(stval);
         break;
     case IN_SD:
         printk("> Attention: the 0x%lx addr was swapped to SD! the origin physical addr is 0x%lx\n", 
@@ -92,10 +118,18 @@ void handle_page_fault_load(regs_context_t *regs, uint64_t stval, uint64_t cause
         alloc_page_helper(fault_addr, current_running->pgdir, MAP_USER, \
                         _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_ACCESSED);
         current_running->pge_num++;
-        break;              
+        break; 
+    case DASICS_NO_V:
+        PTE * pte = get_PTE_of(fault_addr, current->pgdir);
+        assert(pte != NULL);
+        *pte = *pte | _PAGE_PRESENT;
+        break;             
     default:
         break;
     };
+
+    local_flush_tlb_all();
+
     // printk("load page end\n");
 }
 
@@ -110,7 +144,7 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
     switch (check_W_SD_and_set_AD(fault_addr, current_running->pgdir, STORE))
     {
     case ALLOC_NO_AD:
-        local_flush_tlb_page(stval);
+        // local_flush_tlb_page(stval);
         break;
     case IN_SD:
         break; 
@@ -118,7 +152,7 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
         break; 
     case NO_W:
         deal_no_W(fault_addr);
-        local_flush_tlb_page(stval);
+        // local_flush_tlb_page(stval);
         break;
     case NO_ALLOC:
         alloc_page_helper(fault_addr, current_running->pgdir, MAP_USER, \
@@ -126,9 +160,16 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
         // load_lazy_mmap(fault_addr);
         current_running->pge_num++;  
         break;      
+    case DASICS_NO_V:
+        PTE * pte = get_PTE_of(fault_addr, current->pgdir);
+        assert(pte != NULL);
+        *pte = *pte | _PAGE_PRESENT;
+        break;
     default:
         break;
     }
+    local_flush_tlb_all();
+
     // printk("store page end\n");
 }
 
@@ -166,22 +207,50 @@ void init_exception()
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
-    char* reg_name[] = {
-        "zero "," ra  "," sp  "," gp  "," tp  ",
-        " t0  "," t1  "," t2  ","s0/fp"," s1  ",
-        " a0  "," a1  "," a2  "," a3  "," a4  ",
-        " a5  "," a6  "," a7  "," s2  "," s3  ",
-        " s4  "," s5  "," s6  "," s7  "," s8  ",
-        " s9  "," s10 "," s11 "," t3  "," t4  ",
-        " t5  "," t6  "
-    };
     printk("name: %s, pid: %ld\n", current->name, current->pid);
-    for (int i = 0; i < 32; i += 3) {
-        for (int j = 0; j < 3 && i + j < 32; ++j) {
-            printk("%s : %016lx ",reg_name[i+j], *(long *)((reg_t)regs + (i + j) * sizeof(reg_t)));
-        }
-        printk("\n\r");
-    }
+    printk("%s : %016lx ", "zero", regs->zero);
+    printk("%s : %016lx ", "ra", regs->ra);
+    printk("%s : %016lx ", "sp", regs->sp);
+    printk("\n\r");
+    printk("%s : %016lx ", "gp", regs->gp);
+    printk("%s : %016lx ", "tp", regs->tp);
+    printk("%s : %016lx ", "t0", regs->t0);
+    printk("\n\r");
+    printk("%s : %016lx ", "t1", regs->t1);
+    printk("%s : %016lx ", "t2", regs->t2);
+    printk("%s : %016lx ", "s0/fp", regs->s0);
+    printk("\n\r");
+    printk("%s : %016lx ", "s1", regs->s1);
+    printk("%s : %016lx ", "a0", regs->a0);
+    printk("%s : %016lx ", "a1", regs->a1);
+    printk("\n\r");
+    printk("%s : %016lx ", "a2", regs->a2);
+    printk("%s : %016lx ", "a3", regs->a3);
+    printk("%s : %016lx ", "a4", regs->a4);
+    printk("\n\r");    
+    printk("%s : %016lx ", "a5", regs->a5);
+    printk("%s : %016lx ", "a6", regs->a6);
+    printk("%s : %016lx ", "a7", regs->a7);
+    printk("\n\r");
+    printk("%s : %016lx ", "s2", regs->s2);
+    printk("%s : %016lx ", "s3", regs->s3);
+    printk("%s : %016lx ", "s4", regs->s4);
+    printk("\n\r"); 
+    printk("%s : %016lx ", "s5", regs->s5);
+    printk("%s : %016lx ", "s6", regs->s6);
+    printk("%s : %016lx ", "s7", regs->s7);
+    printk("\n\r");    
+    printk("%s : %016lx ", "s8", regs->s8);
+    printk("%s : %016lx ", "s9", regs->s9);
+    printk("%s : %016lx ", "s10", regs->s10);
+    printk("\n\r");
+    printk("%s : %016lx ", "s11", regs->s11);
+    printk("%s : %016lx ", "t3", regs->t3);
+    printk("%s : %016lx ", "t4", regs->t4);
+    printk("\n\r");
+    printk("%s : %016lx ", "t5", regs->t5);
+    printk("%s : %016lx ", "t6", regs->t6);
+    printk("\n\r");
     printk("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
            regs->sstatus, regs->sbadaddr, regs->scause);
     printk("stval: 0x%lx cause: %lx\n\r",
@@ -203,14 +272,14 @@ void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
 
     //     fp = prev_fp;
     // }
-    if (regs->scause == EXCC_LOAD_PAGE_FAULT)
-    {
-        uint64_t kva =  get_kva_of(regs->sbadaddr, current->pgdir);
-        printk("The kva: %lx, addr: %lx\n", kva, *(uint64_t *)kva);
-    }
+    // if (regs->scause == EXCC_LOAD_PAGE_FAULT)
+    // {
+    //     uint64_t kva =  get_kva_of(regs->sbadaddr, current->pgdir);
+    //     printk("The kva: %lx, addr: %lx\n", kva, *(uint64_t *)kva);
+    // }
 
 
-    screen_reflush();
+    // screen_reflush();
     assert(0);
 }
 
