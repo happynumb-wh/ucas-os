@@ -14,7 +14,7 @@
  * @param envp environment
  * @param filename the filename
  */
-static uintptr_t copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
+static uintptr_t __maybe_unused copy_thing_user_stack(pcb_t *init_pcb, ptr_t user_stack, int argc, \
             const char *argv[], const char *envp[], const char *filename)
 {
     // the kva of the user_top
@@ -403,8 +403,9 @@ pid_t do_execve(const char* path, const char* argv[], const char * envp[]){
     }
 
     // copya all things on the user stack
-    initpcb->user_sp = copy_thing_user_stack(initpcb, initpcb->user_stack_top, argc, \
-                        argv, envp, path);
+    initpcb->user_sp = /*copy_thing_user_stack(initpcb, initpcb->user_stack_top, argc, \
+                        argv, envp, path);*/
+                       create_elf_tables(initpcb, argc, argv, envp); 
 
     uint64_t save_core_id = get_current_cpu_id();
     // initialize process
