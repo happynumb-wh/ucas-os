@@ -219,8 +219,8 @@ static inline PTE * get_PTE_of(uintptr_t va, uintptr_t pgdir_va){
          
     PTE *third_page  = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT)); 
 
-    if (get_attribute(second_page[vpn[2]]) & node_flag)
-        return &second_page[vpn[0]];    
+    if (get_attribute(second_page[vpn[1]]) & node_flag)
+        return &second_page[vpn[1]];    
 
     if (third_page[vpn[0]] == 0/* || (third_page[vpn[0]] & _PAGE_PRESENT) == 0*/)
         return NULL;    

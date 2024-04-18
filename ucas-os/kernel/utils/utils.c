@@ -1254,7 +1254,7 @@ int check_addr_alloc(uintptr_t vta, uint64_t len){
         if(get_kva_of(i, current_running->pgdir) == 0){
             not_alloc = 1;
             alloc_page_helper(i, current_running->pgdir, MAP_USER,  \
-                        _PAGE_EXEC | _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED);
+                        _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED);
         }
     }
     if(not_alloc){

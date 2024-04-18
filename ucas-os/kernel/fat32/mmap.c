@@ -32,7 +32,7 @@ static uintptr_t __mmap_addr(uint64_t ptr, uint64_t size, uint64_t prot)
         if (exits_page)
         {
             memset((void *)exits_page, 0, PAGE_SIZE);
-            do_mprotect((void *)start, PAGE_SIZE, prot);                            
+            do_mprotect((void *)i, PAGE_SIZE, prot);                            
 
         } else 
             alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \

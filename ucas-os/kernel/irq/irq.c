@@ -40,32 +40,25 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
     // current->kernel_sp = (uint64_t)regs;
     if ((regs->sstatus & SR_SPP) == 0)
         update_utime();
+    else 
+        update_stime();
+
     if ((cause & SCAUSE_IRQ_FLAG) == SCAUSE_IRQ_FLAG) 
     {
         irq_table[regs->scause & ~(SCAUSE_IRQ_FLAG)](regs, stval, cause);
     } else
     {
-        // No nested exception
-        // if ((regs->sstatus & SR_SPP) != 0 && current->pid)
-        // {
-
-        //     handle_other(regs, stval, cause);
-
-        // }
-        // printk("[EXCEPTION]: name: %s, sepc: 0x%lx, stval: 0x%lx, scause: 0x%lx\n",current->name, regs->sepc, regs->sbadaddr, regs->scause);
         exc_table[regs->scause](regs, stval, cause);
     }
     // No nested exception
-    if ((regs->sstatus & SR_SPP) != 0 && current->pid)
+    if ((regs->sstatus & SR_SPP) != 0)
     {
         regs->sscratch = 0;
         current->save_context = prev_context;
         
-        // current->kernel_sp = (uint64_t)prev_sp;        
     }
 
     update_stime();
-    // printk("interrupt end\n");
 }
 
 void handle_int(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
@@ -76,6 +69,9 @@ void handle_int(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
 void handle_page_fault_inst(regs_context_t *regs, uint64_t stval, uint64_t cause){
     // printk("inst page fault: %lx\n",stval);
     uint64_t fault_addr = stval;
+    // PTE * pte = get_PTE_of(stval, current->pgdir);
+    // if (pte)
+    //     printk("store sepc: 0x%lx, PTE: 0x%lx, stval: 0x%lx\n",regs->sepc, *pte, stval);   
     switch(check_W_SD_and_set_AD(fault_addr, current_running->pgdir, LOAD))
     {
     case ALLOC_NO_AD:
@@ -156,7 +152,7 @@ void handle_page_fault_store(regs_context_t *regs, uint64_t stval, uint64_t caus
         break;
     case NO_ALLOC:
         alloc_page_helper(fault_addr, current_running->pgdir, MAP_USER, \
-                        _PAGE_EXEC | _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY);
+                        _PAGE_READ | _PAGE_WRITE | _PAGE_ACCESSED | _PAGE_DIRTY);
         // load_lazy_mmap(fault_addr);
         current_running->pge_num++;  
         break;      

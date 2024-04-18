@@ -601,10 +601,10 @@ ENDPROC(switch_to)
 
 ENTRY(ret_from_exception)
   /* check if we return to kernel or a normal thread */
-  la t0, pid0_pcb_master
-  beq tp, t0, restore
-  la t0, pid0_pcb_slave
-  beq tp, t0, restore
+//  la t0, pid0_pcb_master
+//  beq tp, t0, restore
+//  la t0, pid0_pcb_slave
+//  beq tp, t0, restore
 
   /* return to a normal thread(not the pid0 thread) now */
   addi t0, sp, OFFSET_SIZE

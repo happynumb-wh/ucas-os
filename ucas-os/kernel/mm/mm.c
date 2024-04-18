@@ -279,6 +279,7 @@ PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_
     //     return 0;//pa2kva((get_pfn(third_page[vpn[0]]) << NORMAL_PAGE_SHIFT));
 
     /* the physical page */
+    third_page[vpn[0]] = 0;
     set_pfn(&third_page[vpn[0]], kva2pa(kva) >> NORMAL_PAGE_SHIFT);
     /* maybe need to assign U to low */
     // Generate flags
