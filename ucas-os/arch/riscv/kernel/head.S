@@ -24,7 +24,7 @@ ENTRY(_start)
   la tp, pid0_pcb_master
   ld sp, pid0_stack_master
   csrw CSR_SSCRATCH, x0
-  call main
+  call start_kernel
 
 secondary:
   la tp, pid0_pcb_slave
@@ -32,7 +32,7 @@ secondary:
   csrw CSR_SSCRATCH, x0
 
 
-  call main
+  call start_kernel
 
 loop:
   wfi

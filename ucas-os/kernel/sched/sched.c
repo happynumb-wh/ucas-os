@@ -235,6 +235,7 @@ void do_exit(int32_t exit_status){
             send_signal(SIGCHLD, current_running->parent.parent);
         }        
     }
+    printk("Finish do_exit\n");
     /* scheduler */
     do_scheduler();  
 }

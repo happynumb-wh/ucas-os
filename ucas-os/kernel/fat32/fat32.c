@@ -260,10 +260,6 @@ int64 fat32_close(fd_num_t fd)
  */
 int64 fat32_read(fd_num_t fd, char *buf, size_t count)
 {
-    // for (uint64_t i = (uint64_t)buf; i < (uint64_t)buf + count; i+=PAGE_SIZE)
-    //     handle_page_fault_store(NULL, i, NULL);
-    
-    // printk("[read] fd:%d,buf:%lx, count: %d(0x%x)\n", fd, buf,count, count);
     // get nfd now
     int fd_index = get_fd_index(fd, current_running);
     if (fd_index == -1) return -EBADF;
@@ -272,7 +268,6 @@ int64 fat32_read(fd_num_t fd, char *buf, size_t count)
     // if(nfd->share_fd != 0 && nfd->share_fd->version > nfd->version){
     //     memcpy(nfd, nfd->share_fd, sizeof(fd_t));
     // }   
-    // printk("[read] try to read fd = %d(index = %d), buf = 0x%x, count = %d\n",fd,fd_index,buf,count);
     assert(nfd != NULL);
 
     // handle "/etc/passwd", "/etc/localtime", DEV_STDIN, DEV_STDOUT
@@ -293,7 +288,6 @@ int64 fat32_read(fd_num_t fd, char *buf, size_t count)
         return -EFAULT;
     }
     uint32_t real_count = min(count, nfd->length - nfd->pos);
-    // printk("[read] nfd->length = %d, nfd->pos = %d\n",nfd->length,nfd->pos);
     uint32_t ncount = 0;
     /* record */
     uint32_t old_clus_num = nfd->pos / CLUSTER_SIZE;
@@ -301,13 +295,10 @@ int64 fat32_read(fd_num_t fd, char *buf, size_t count)
     uint32_t new_clus_num = old_clus_num;
     uint32_t new_sec_num = old_sec_num;
     while (ncount < real_count) {
-        // change in 2022 7.16
         // size_t pos_offset_in_buf = nfd->pos % BUFSIZE;
         size_t pos_offset_in_buf = nfd->pos % SECTOR_SIZE;
-        // printk("pos_offset_in_buf: %d\n", pos_offset_in_buf);
         size_t readsize = min(BUFSIZE - pos_offset_in_buf, real_count - ncount);
         /* read readsize */
-        // printk("fat32_read: 0x%lx,%d,%d\n",buffer, nfd->cur_sec, READ_MAX_SEC);
         disk_read(buffer, nfd->cur_sec, READ_MAX_SEC);
         /* memcpy */
         memcpy(buf_point, buffer + pos_offset_in_buf, readsize); 
@@ -329,22 +320,14 @@ int64 fat32_read(fd_num_t fd, char *buf, size_t count)
         old_sec_num = new_sec_num;
     }
     kfree(buffer);
-    // printk("[read] read; fd = %d(%d), buf = 0x%lx, real_count = %d\n",fd,fd_index,buf,real_count);
-    // nfd->version++;
-    // memcpy(nfd->share_fd, nfd, sizeof(fd_t));
+
     return real_count;
 }
 
 int64 fat32_write(fd_num_t fd, const char *buf, uint64_t count)
 {
-    /* tmp */
-    // printk("[write] try to write; fd = %d, buf = 0x%x(%s), count = %d\n",fd,buf,buf,count);
-    // if(count == 4096){
-    //     printk("count\n");
-    // }
     // get nfd now
     int fd_index = get_fd_index(fd, current_running);
-    // printk("fd_index: %d\n", fd_index);
     if (fd_index == -1){
         // TODO: write error to let ferror read
         return -EBADF;
@@ -438,8 +421,6 @@ int64 fat32_write(fd_num_t fd, const char *buf, uint64_t count)
         // debug_print_fd(nfd);
     }
     kfree(buffer);
-    // printk("[write] write; fd = %d(%d), buf = 0x%lx, count = %d; final file length = %d\n",fd,fd_index,buf,count,nfd->length);
-    // nfd->version++;
     assert(nfd != 0);   
     // assert(nfd->share_fd != 0);
     // memcpy(nfd->share_fd, nfd, sizeof(fd_t));
@@ -526,8 +507,6 @@ int fat32_chdir(char *dest_path)
     }
     path[count] = '\0';
     len = count;
-    // printk("path: %s, len: %d, %d\n", path, len, strlen(path));
-    // while(1);
     if(!strcmp("/", path))
     {
         memset(cwd_path, 0, FAT32_MAX_PATH);
@@ -623,12 +602,6 @@ int fat32_mkdirat(fd_num_t dirfd, const char *path_const, uint32_t mode)
 int fat32_getdents(uint32_t fd, char *outbuf, uint32_t len)
 {
     fd_t* nfd = &current_running->pfd[get_fd_index(fd, current_running)];
-    // if(nfd->share_fd != 0 && nfd->share_fd->version > nfd->version){
-    //     memcpy(nfd, nfd->share_fd, sizeof(fd_t));
-    // }   
-    // printk("fd: %d, getdents: %s, pos: %d, cur_clus: %d, cur_sec: %d\n",fd, nfd->name, nfd->pos, nfd->cur_clus_num, nfd->cur_sec);
-    // uint32_t clus_num = nfd->first_clus_num;
-    // uint32_t sec_num = first_sec_of_clus(clus_num);
     uint32_t read_len = 0;
     uint64_t d_ino;
     char *buf = kmalloc(PAGE_SIZE);
@@ -650,10 +623,8 @@ int fat32_getdents(uint32_t fd, char *outbuf, uint32_t len)
         memset(filename, 0, FAT32_MAX_FILENAME);
         while (entry->dename[0] == EMPTY_ENTRY)
         {
-            // entry = next_entry(entry, buf, &clus_num, &sec_num);
             entry = next_entry(entry, buf, &nfd->cur_clus_num, &nfd->cur_sec);
             add_pos += sizeof(dentry_t);
-            // printk("getdents: %s, pos: %d, cur_clus: %d, cur_sec: %d\n",nfd->name, nfd->pos, nfd->cur_clus_num, nfd->cur_sec);
         }
         if (dentry_is_empty(entry)) break;
         d_ino = nfd->cur_clus_num;
@@ -724,7 +695,6 @@ int fat32_getdents(uint32_t fd, char *outbuf, uint32_t len)
             }
             filename[count] = 0;
         }//得到目录项记录的文件名字
-        // printk("entry:%lx,name:%s, filename:%s\n",entry, entry->dename , filename);
         if(read_len + dirent64_size + strlen(filename) + 1 > len)
         {
             break;
@@ -740,13 +710,11 @@ int fat32_getdents(uint32_t fd, char *outbuf, uint32_t len)
         // entry = next_entry(entry, buf, &clus_num, &sec_num);
         entry = next_entry(entry, buf, &nfd->cur_clus_num, &nfd->cur_sec);
         add_pos += sizeof(dentry_t);
-        // printk("filename: %s, linux dirent: %s\n",filename, dirent->d_name);
-        // printk("getdents: %s, pos: %d, cur_clus: %d, cur_sec: %d\n",nfd->name, nfd->pos, nfd->cur_clus_num, nfd->cur_sec);
+
     }
     nfd->pos += add_pos;
     add_pos += (nfd->pos % SECTOR_SIZE);
     nfd->cur_sec += ((add_pos / SECTOR_SIZE) % READ_MAX_SEC);
-    // printk("leave getdents: %s, pos: %d, cur_clus: %d, cur_sec: %d\n",nfd->name, nfd->pos, nfd->cur_clus_num, nfd->cur_sec);
     kfree(buf);
     return read_len;
 }
@@ -821,8 +789,7 @@ int fat32_unlink(int dirfd, const char* path, uint32_t flags)
     type_t mode;
     mode = ((AT_REMOVEDIR & flags) == 0) ? FILE_FILE : FILE_DIR;
     struct dir_pos pos;
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
+
     dentry_t* dentry = search2(dir.name, dir.first_clus, buf, mode, &pos);
     if(dentry == NULL){
         printk("not find dir!\n");
@@ -865,7 +832,6 @@ int fat32_dup(int src_fd){
             nfd->redirected_fd_index = src_fd_index;
         }
     //}
-    // printk("[dup] try to dup %d, ret %d\n",src_fd,ret_fd);
     return ret_fd;
 }
 int fat32_dup3(int src_fd,int dst_fd){
@@ -874,7 +840,6 @@ int fat32_dup3(int src_fd,int dst_fd){
     if (src_fd_index == -1) return -EBADF;
     int32_t dst_fd_index = get_fd_index(dst_fd, current_running);
     if (dst_fd_index != -1) fat32_close(dst_fd);
-    // printk("[dup3] try to dup %d(%d), dst %d(%d)\n",src_fd,src_fd_index,dst_fd,dst_fd_index);
     int i;
     for (i=0;i<MAX_FILE_NUM;i++) {
         if (current_running->pfd[i].fd_num == dst_fd){
@@ -913,7 +878,6 @@ int64_t fat32_fcntl(fd_num_t fd, int32_t cmd, uint64_t arg){
 int64 fat32_readv(fd_num_t fd, struct iovec *iov, int iovcnt){
     int64_t tot_count = 0 ,cur_count = 0;
     for (uint32_t i = 0; i < iovcnt; i++){
-    // printk("[readv] try to readv fd = %d, iov_base = 0x%x, iov_len = %d, iovcnt = %d\n",fd,iov->iov_base,iov->iov_len,iovcnt);
         if (iov->iov_len != 0) cur_count = fat32_read(fd, iov->iov_base, iov->iov_len);
         if ((cur_count) < 0) return cur_count;
         tot_count += cur_count;
@@ -935,7 +899,6 @@ int64 fat32_writev(fd_num_t fd, struct iovec *iov, int iovcnt){
 #define AT_EMPTY_PATH 0x1000
 int fat32_fstatat(fd_num_t dirfd, const char *pathname, struct stat *statbuf, int32 flags){
 
-    // printk("[fstatat] enter fstatat with %s\n", pathname);
     //mode IGNORED
     int exist = 0;
     int i,fd;
@@ -1009,10 +972,8 @@ int32_t fat32_utimensat(fd_num_t dirfd, const char *pathname, const struct times
     if (pathname == NULL){
         futimens = 1;
         fd = dirfd;
-        // printk("[utimensat] set time for fd %d\n",dirfd);
     }
 
-    // else printk("[utimensat] set time for %s\n",pathname);
     if (futimens || (fd = fat32_openat(dirfd, pathname, O_RDONLY, flags)) >= 0 || (fd = fat32_openat(dirfd, pathname, O_DIRECTORY, flags)) >= 0) {
         if (fd < 0)
             return -ENOENT;
@@ -1069,7 +1030,6 @@ int32_t fat32_fsync(fd_num_t fd){
 }
 size_t fat32_readlinkat(fd_num_t dirfd, const char *pathname, 
                         char *buf, size_t bufsiz){
-    // printk("dirfd: %d; pathname: %s, buf:%lx\n", dirfd, pathname, buf);
     // char path[25] = "/lmbench_all";
     if (!strcmp(pathname, "/proc/self/exe")){
         if (current_running->name[0]!='/')
@@ -1153,8 +1113,7 @@ int fat32_renameat2(fd_num_t olddirfd, const char *oldpath_const, fd_num_t newdi
     }
     
     struct dir_pos old_pos;
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
+
     dentry_t* old_dentry = search2(old_dir.name, old_dir.first_clus, old_buf, FILE_FILE, &old_pos);
     if(old_dentry == NULL){
         old_dentry = search2(old_dir.name, old_dir.first_clus, old_buf, FILE_DIR, &old_pos);
@@ -1205,8 +1164,7 @@ int fat32_renameat2(fd_num_t olddirfd, const char *oldpath_const, fd_num_t newdi
     }
     
     struct dir_pos new_pos;
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
-    // printk("dir.name:%s, dir.first clus: %d\n", dir.name, dir.first_clus);
+
     dentry_t* new_dentry = search2(new_dir.name, new_dir.first_clus, new_buf, FILE_FILE, &new_pos);
     if(new_dentry == NULL){
         new_dentry = search2(new_dir.name, new_dir.first_clus, new_buf, FILE_DIR, &new_pos);
@@ -1280,7 +1238,6 @@ int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count)
     // for (uint64_t i = (uint64_t)buf; i < (uint64_t)buf + count; i+=PAGE_SIZE)
     //     handle_page_fault_store(NULL, i, NULL);
     
-    // printk("[read] fd:%d,buf:%lx, count: %d(0x%x)\n", fd, buf,count, count);
     // get nfd now
     int fd_index = get_fd_index(fd, current_running);
     if (fd_index == -1) return -EBADF;
@@ -1289,7 +1246,6 @@ int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count)
     // if(nfd->share_fd != 0 && nfd->share_fd->version > nfd->version){
     //     memcpy(nfd, nfd->share_fd, sizeof(fd_t));
     // }   
-    // printk("[read] try to read fd = %d(index = %d), buf = 0x%x, count = %d\n",fd,fd_index,buf,count);
     assert(nfd != NULL);
 
     // handle "/etc/passwd", "/etc/localtime", DEV_STDIN, DEV_STDOUT
@@ -1321,10 +1277,8 @@ int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count)
         // change in 2022 7.16
         // size_t pos_offset_in_buf = nfd->pos % BUFSIZE;
         size_t pos_offset_in_buf = nfd->pos % SECTOR_SIZE;
-        // printk("pos_offset_in_buf: %d\n", pos_offset_in_buf);
         size_t readsize = min(BUFSIZE - pos_offset_in_buf, real_count - ncount);
         /* read readsize */
-        // printk("fat32_read: 0x%lx,%d,%d\n",buffer, nfd->cur_sec, READ_MAX_SEC);
         sd_read_sector(buffer, nfd->cur_sec, READ_MAX_SEC);
         /* memcpy */
         memcpy(buf_point, buffer + pos_offset_in_buf, readsize); 
@@ -1350,7 +1304,6 @@ int64 fat32_read_uncached(fd_num_t fd, char *buf, size_t count)
         old_sec_num = new_sec_num;
     }
     kfree(buffer);
-    // printk("[read] read; fd = %d(%d), buf = 0x%lx, real_count = %d\n",fd,fd_index,buf,real_count);
     // nfd->version++;
     // memcpy(nfd->share_fd, nfd, sizeof(fd_t));
     return real_count;

@@ -10,11 +10,10 @@
 /* recycle */
 int recycle_page_default(uintptr_t pgdir){
     int recyclePageNum = 0;
-    PTE *kernelBase = (PTE *)PGDIR_PA;
     PTE *recycleBase = (PTE *)pgdir;
-    for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
+    for (int vpn2 = 0; vpn2 < PTE_NUM / 2; vpn2++)
     {
-        if (kernelBase[vpn2] || !recycleBase[vpn2]) 
+        if (!recycleBase[vpn2]) 
             continue;
         PTE *second_page = (PTE *)pa2kva((get_pfn(recycleBase[vpn2]) << NORMAL_PAGE_SHIFT));
         /* we will let the user be three levels page */ 
@@ -34,11 +33,15 @@ int recycle_page_default(uintptr_t pgdir){
             freePage((uintptr_t)third_page);
             recyclePageNum++;
         }
-        freePage((uintptr_t)second_page);        
+        freePage((uintptr_t)second_page);       
         recyclePageNum++;
     }
     /* change the pgdir to kernel */
+    set_satp(SATP_MODE_SV39, 0, \
+        (uint64_t)kva2pa(PGDIR_PA) >> 12);
+    local_flush_tlb_all();
     freePage((uintptr_t)recycleBase);
+
     recyclePageNum++;
     return recyclePageNum;
 }

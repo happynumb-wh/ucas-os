@@ -34,9 +34,13 @@ static uintptr_t __mmap_addr(uint64_t ptr, uint64_t size, uint64_t prot)
             memset((void *)exits_page, 0, PAGE_SIZE);
             do_mprotect((void *)i, PAGE_SIZE, prot);                            
 
-        } else 
-            alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER, \
-                            __prot_to_page_flag(prot) & (~_PAGE_WRITE));
+        } else
+        {
+            void * page = alloc_page_helper(i , current->pgdir, MAP_USER, __prot_to_page_flag(prot));
+            memset(page, 0, PAGE_SIZE);
+        }
+            // alloc_page_point_phyc(i, current->pgdir, (uint64_t)__kzero_page, MAP_USER,
+            //                 __prot_to_page_flag(prot) & (~_PAGE_WRITE));
 
 
         // local_flush_tlb_page(i);
@@ -74,7 +78,7 @@ static uintptr_t __mmap_addr_fd(uint64_t ptr, uint64_t fd, uint64_t off, uint64_
         uint64_t max_size = end - i;
         if (exits_page)
         {
-            fat32_read(fd, (void *)exits_page, PAGE_SIZE);
+            fat32_read(fd, (void *)exits_page, min(PAGE_SIZE, max_size));
             do_mprotect((void *)i, PAGE_SIZE, prot);
         } else
         {
@@ -123,7 +127,7 @@ uint64_t fat32_mmap(void *start, size_t len, uint64_t prot, uint64_t flags, uint
         {
             if (!(flags & MAP_FIXED))
             {
-                printk("[WARN]: User acquire fix add but not use MAP_FIXED");
+                printk("[WARN]: User acquire fix addr but not use MAP_FIXED");
                 start = (void *)current->mm.mmap_base;
                 
             }
@@ -143,11 +147,13 @@ uint64_t fat32_mmap(void *start, size_t len, uint64_t prot, uint64_t flags, uint
 
     }    
 end:
+    printk("[mmap]: addr: 0x%lx\n", start);
     return (uint64_t)start;
 }
 
 int64 fat32_munmap(void *start, size_t len)
 {
+    assert( ((uint64_t)start & 0xfff) == 0);
     printk("[munmap] start:0x%lx, len: 0x%lx\n", start, len);
     // for (int i = 0; i < MAX_FILE_NUM; i++)
     // {
@@ -191,6 +197,7 @@ int64 fat32_munmap(void *start, size_t len)
         free_page_helper(i, current->pgdir);
     }
 
+    local_flush_tlb_all();
     return 0;
     
 
@@ -212,6 +219,8 @@ void *fat32_mremap(void *old_address, size_t old_size, size_t new_size, int flag
     // fat32_lseek(nfd->fd_num,old_seek,SEEK_SET);
     return new_address;
 }
+
+
 int fat32_msync(void *addr, size_t length, int flags){
     if((int64_t)addr % PAGE_SIZE != 0){
         return -EINVAL;

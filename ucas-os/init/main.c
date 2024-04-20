@@ -53,7 +53,7 @@ static pid_t init_shell()
         NULL,
     };
 
-    pid_t shell_pid = do_exec("shell", 1, shell_argv, AUTO_CLEANUP_ON_EXIT);
+    pid_t shell_pid = do_exec(shell_argv[0], 1, shell_argv, AUTO_CLEANUP_ON_EXIT);
 
     // Init pcb0 master
     init_list(&pid0_pcb_master.list);
@@ -236,12 +236,14 @@ static void setup_first_core(){
     init_sig_table();
     printk("> [INIT] fd and sig table initialization succeeded.\n\r");
     // init shell
+    // Clear boot mapping
+    memset((void *)PGDIR_PA, 0, PAGE_SIZE/2);
+    
     pid_t shell_pid =  init_shell();
     printk("> [INIT] shell initialization succeeded, pid: %ld.\n\r", shell_pid);
 
 
-    ((uintptr_t *)(PGDIR_PA))[1] = 0;
-    ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = 0;
+    // ((uintptr_t *)(get_pcb_by_pid(shell_pid)))[1] = 0;
 
     pid0_pcb_master.core_id = 0;
 
@@ -270,11 +272,11 @@ static void setup_first_core(){
 }
 
 // The beginning of everything >_< ~~~~~~~~~~~~~~
-int main(unsigned long mhartid)
+int start_kernel(unsigned long mhartid)
 {   
     if (!mhartid) {
         setup_first_core();
-    }else{
+    } else {
         printk("> [INIT] Second core enter kernel\n");
         // wait clean boot map
         pid0_pcb_slave.core_id = 1;

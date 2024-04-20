@@ -3,6 +3,7 @@
 
 #include <type.h>
 #include <asm.h>
+#include <os/string.h>
 
 #define SATP_MODE_SV39 8
 #define SATP_MODE_SV48 9
@@ -188,9 +189,7 @@ static inline void clear_pgdir(uintptr_t pgdir_addr)
     /**
      * clear page
      */
-    for(uint64_t i = 0; i < PAGE_SIZE; i += 8){
-        *((uint64_t *)(pgdir_addr+i)) = 0;
-    }
+    memset((void *)pgdir_addr, 0, PAGE_SIZE);
 }
 
 static inline PTE * get_PTE_of(uintptr_t va, uintptr_t pgdir_va){

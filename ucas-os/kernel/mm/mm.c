@@ -179,7 +179,8 @@ PTE check_page_set_flag(PTE* page, uint64_t vpn, uint64_t flag, int bzero){
         if (bzero)
         {
             /* clear the second page */
-            clear_pgdir(newpage);            
+            // clear_pgdir(newpage);   
+            memset((void *)newpage, 0, PAGE_SIZE);         
         }
         set_pfn(&page[vpn], kva2pa(newpage) >> NORMAL_PAGE_SHIFT);
         /* maybe need to set the U, the kernel will not set the U 
@@ -251,7 +252,7 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
 #endif
 
     /* final page */
-    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 0) | (va & (uint64_t)0x0fff));
+    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 1) | (va & (uint64_t)0x0fff));
 
 }
 
@@ -392,7 +393,7 @@ uint32_t check_W_SD_and_set_AD(uintptr_t va, uintptr_t pgdir, int mode){
 uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir)
 {
     
-    uint64_t vpn[] = {
+    uint64_t vpn[3] = {
                       (va >> 12) & ~(~0 << 9), //vpn0
                       (va >> 21) & ~(~0 << 9), //vpn1
                       (va >> 30) & ~(~0 << 9)  //vpn2
@@ -421,4 +422,51 @@ uintptr_t free_page_helper(uintptr_t va, uintptr_t pgdir)
     }
 
     return 0;
+}
+
+
+void free_range(void * start, size_t length, uintptr_t pgdir)
+{
+    uint64_t va = (uint64_t)start;
+
+    /* the PTE in the first page_table */
+    PTE *page_base = (uint64_t *) pgdir;
+
+    size_t end = va + length;
+
+    while (va < end)
+    {
+        uint64_t vpn[3] = {
+                        (va >> 12) & ~(~0 << 9), //vpn0
+                        (va >> 21) & ~(~0 << 9), //vpn1
+                        (va >> 30) & ~(~0 << 9)  //vpn2
+                        };        
+
+        /* second page */
+        PTE *second_page = NULL;
+        /* finally page */
+        PTE *third_page = NULL;
+        /* find the second page */
+        if((page_base[vpn[2]] & _PAGE_PRESENT) == 0){
+            return;
+        }
+        second_page = (PTE *)pa2kva((get_pfn(page_base[vpn[2]]) << NORMAL_PAGE_SHIFT));
+        if((second_page[vpn[1]] & _PAGE_PRESENT) == 0){
+            return;
+        }
+        /* third page */
+        third_page = (PTE *)pa2kva((get_pfn(second_page[vpn[1]]) << NORMAL_PAGE_SHIFT));
+
+        if (third_page[vpn[0]])
+        {
+            freePage(pa2kva((get_pfn(third_page[vpn[0]]) << NORMAL_PAGE_SHIFT)));
+            third_page[vpn[0]] = 0;
+        }
+
+    }
+    
+
+
+
+
 }
