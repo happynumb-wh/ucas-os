@@ -252,7 +252,7 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
 #endif
 
     /* final page */
-    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 1) | (va & (uint64_t)0x0fff));
+    return (void *)(check_page_set_flag(third_page, vpn[0], pte_flags, 0) | (va & (uint64_t)0x0fff));
 
 }
 
@@ -465,8 +465,5 @@ void free_range(void * start, size_t length, uintptr_t pgdir)
 
     }
     
-
-
-
 
 }

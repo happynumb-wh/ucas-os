@@ -46,16 +46,34 @@ int main(void)
     // };
 
 
-    char *hmmer_argv[] = {
-        "hmmer",
-        "nph3.hmm",
-        "swiss41",
-        "-dasics",
-        (void *)0
+    // char *hmmer_argv[] = {
+    //     "hmmer",
+    //     "nph3.hmm",
+    //     "swiss41",
+    //     "-dasics",
+    //     (void *)0
+    // };
+
+    char * perlbench_argv[] = {
+        "perlbench",
+        "-I./lib",
+        "diffmail.pl",
+        "4",
+        "800",
+        "10",
+        "17",
+        "19",
+        "300",
+        "-dasics"
     };
 
+
+
+
     // pid_t pid =  sys_exec(ripe_argv[0], 12, ripe_argv);
-    pid_t pid =  sys_exec(hmmer_argv[0], 4, hmmer_argv);
+    // pid_t pid =  sys_exec(hmmer_argv[0], 4, hmmer_argv);
+    pid_t pid =  sys_exec(perlbench_argv[0], 10, perlbench_argv);
+
 
 
     sys_waitpid(pid);

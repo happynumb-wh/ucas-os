@@ -1127,6 +1127,8 @@ int open_special_path(fd_t * new_fd, const char * path)
              !strcmp("/ls", path)) {
         strcpy(new_fd->name, path);
         int file_id = get_file_from_kernel(path);
+        if (file_id == -1)
+            return 0;
         assert(file_id != -1);
         new_fd->length = *elf_files[file_id].file_length;
         new_fd->pos = 0;

@@ -10,9 +10,8 @@ int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset
 
     uintptr_t page_flag = get_page_flag(phdr);
 
-    uintptr_t map_length;
-    for (map_length = 0; map_length < phdr->p_memsz; map_length += NORMAL_PAGE_SIZE) {
-    page_remain_k210: ;
+    uintptr_t map_length = 0;
+    while (map_length < phdr->p_memsz) {
         if (map_length < phdr->p_filesz) {
             unsigned char *bytes_of_page =
                 (unsigned char *)alloc_page_helper(
@@ -23,9 +22,9 @@ int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset
                                             );
             
             // not 0x1000 page align
-            uintptr_t page_top = ROUND(bytes_of_page, 0x1000);
+            uintptr_t page_top = ROUND(bytes_of_page, PAGE_SIZE);
 
-            uintptr_t page_base = ROUNDDOWN(bytes_of_page, 0x1000);
+            uintptr_t page_base = ROUNDDOWN(bytes_of_page, PAGE_SIZE);
 
             uintptr_t page_remain = (uintptr_t)page_top - \
                             (uintptr_t)(bytes_of_page);   
@@ -46,7 +45,7 @@ int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset
                     memset((void *)((uintptr_t)bytes_of_page + copy_length), 0, PAGE_SIZE - copy_length);
                 }
 
-
+                map_length += PAGE_SIZE;
             } else 
             {
                 // clear low
@@ -61,30 +60,33 @@ int map_phdr(uintptr_t pgdir, Elf64_Phdr * phdr, void * binary, uintptr_t offset
                     copy_length);
 
                 // clear BSS
-                if (copy_length != (PAGE_SIZE - page_remain))
+                if (copy_length != page_remain)
                 {
                     memset((void *)((uintptr_t)bytes_of_page + copy_length), 0, PAGE_SIZE - copy_length - page_low);
                 }
 
-                map_length += page_remain;
-                goto page_remain_k210;  
+                map_length += copy_length;
             }
             
         } else {
-            long * __maybe_unused bytes_of_page =
-                (long *)alloc_page_helper(
+            uchar * __maybe_unused bytes_of_page =
+                alloc_page_helper(
                 (uintptr_t)(phdr->p_vaddr + map_length + offset), 
                                         pgdir,
                                         MAP_USER,
                                         page_flag);
             
-            uintptr_t page_top = ROUND(bytes_of_page, 0x1000);
+            uintptr_t page_top = ROUND(bytes_of_page, PAGE_SIZE);
 
             uintptr_t page_remain = (uintptr_t)page_top - \
-                            (uintptr_t)(bytes_of_page);             
+                            (uintptr_t)(bytes_of_page);     
+
+            assert(page_remain == 0);        
             
             // clear bss
-            memset(bytes_of_page, 0, MIN(PAGE_SIZE, page_remain));
+            memset(bytes_of_page, 0, PAGE_SIZE);
+
+            map_length += PAGE_SIZE;
         }
     }
     return 0;
