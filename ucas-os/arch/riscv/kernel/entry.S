@@ -370,6 +370,33 @@ _save_context:
   csrr t0, CSR_DJCFG
   sd t0, OFFSET_DASICS_DJCFG(sp)
 
+#ifdef DASICS_NESTED
+
+  csrr t0, CSR_DRETURNPC1
+  sd t0, OFFSET_DASICSRETURNPC1(sp)
+   
+  csrr t0, CSR_DRETURNPC2
+  sd t0, OFFSET_DASICSRETURNPC2(sp)
+  
+  csrr t0, CSR_DRETURNPC3 
+  sd t0, OFFSET_DASICSRETURNPC3(sp)
+  
+  csrr t0, CSR_SCRATCHCFG 
+  sd t0, OFFSET_DASICS_DSCRATCHCFG(sp)
+  
+  csrr t0, CSR_SCRATCHBOUNDLO 
+  sd t0, OFFSET_DASICS_DSCRATCHCFGBOUNDLO(sp)
+  
+  csrr t0, CSR_SCRATCHBOUNDHI 
+  sd t0, OFFSET_DASICS_DSCRATCHCFGBOUNDHI(sp)
+  
+  csrr t0, CSR_MEMLEVEL
+  sd t0, OFFSET_DASICS_DMEMLEVEL(sp)
+  
+  csrr t0, CSR_JMPLEVEL
+  sd t0, OFFSET_DASICS_DJMPLEVEL(sp)
+#endif
+
 #endif
 .endm
 
@@ -525,6 +552,34 @@ _save_context:
   ld t0, OFFSET_DASICS_DJCFG(sp)
   csrw CSR_DJCFG, t0
 
+#ifdef DASICS_NESTED
+
+  ld t0, OFFSET_DASICSRETURNPC1(sp)
+  csrw CSR_DRETURNPC1, t0 
+
+  ld t0, OFFSET_DASICSRETURNPC2(sp)
+  csrw CSR_DRETURNPC2, t0 
+
+  ld t0, OFFSET_DASICSRETURNPC3(sp)
+  csrw CSR_DRETURNPC3, t0 
+
+  ld t0, OFFSET_DASICS_DSCRATCHCFG(sp)
+  csrw CSR_SCRATCHCFG, t0 
+
+  ld t0, OFFSET_DASICS_DSCRATCHCFGBOUNDLO(sp)
+  csrw CSR_SCRATCHBOUNDLO, t0 
+
+  ld t0, OFFSET_DASICS_DSCRATCHCFGBOUNDHI(sp)
+  csrw CSR_SCRATCHBOUNDHI, t0 
+
+  ld t0, OFFSET_DASICS_DMEMLEVEL(sp)
+  csrw CSR_MEMLEVEL, t0 
+
+  ld t0, OFFSET_DASICS_DJMPLEVEL(sp)
+  csrw CSR_JMPLEVEL, t0 
+
+#endif
+
 #endif
 
   addi sp, sp, OFFSET_DASICS
@@ -618,6 +673,8 @@ restore:
   RESTORE_DASICS
   RESTORE_N_EXTENSION
   RESTORE_CONTEXT
+  fence.i
+  fence
   sret
 ENDPROC(ret_from_exception)
 

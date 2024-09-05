@@ -45,7 +45,13 @@ END(_start)
 .global _filesystem_start, _filesystem_end
 
 _filesystem_start:
+#ifdef RAMFS
 .incbin "../../../img/rootfs.img"
+#endif
+
+#ifdef DEFAULT_RAMFS
+.incbin "../../../kernel/fat32/rootfs.img"
+#endif
 _filesystem_end:
 
 #ifdef PRINT_LOG

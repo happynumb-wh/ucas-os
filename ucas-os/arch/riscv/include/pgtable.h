@@ -30,7 +30,7 @@
 
 extern uint64_t _filesystem_start[];
 
-#ifdef RAMFS
+#if defined(RAMFS) || defined(DEFAULT_RAMFS)
 #define QEMU_DISK_OFFSET ((uint64_t)_filesystem_start)
 #else 
 #define QEMU_DISK_OFFSET NULL 

@@ -63,7 +63,7 @@ void init_pcb_stack(
         // use sscratch to placed tp
         pt_regs->sscratch = (reg_t) pcb;
         pt_regs->sepc = entry_point;                  //sepc
-        pt_regs->sstatus = SR_SUM | SR_FS | SR_SPIE | SR_SIE;        //sstatus
+        pt_regs->sstatus = SR_SUM | SR_FS | SR_SPIE;        //sstatus
 
     }
 

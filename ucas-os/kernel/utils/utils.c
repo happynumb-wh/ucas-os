@@ -636,7 +636,7 @@ dentry_t* create_new(char *name, uint32_t cur_clus, char *buf, type_t type, stru
 
     if(dentry_num == 1)
     {
-        for (int i = 0; i < len_filename; i++)
+        for (int i = 0; i < len_filename && i < 8; i++)
         {
             new_dentry.dename[i] = filename[i];
         }

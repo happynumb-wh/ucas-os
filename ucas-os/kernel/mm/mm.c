@@ -248,7 +248,7 @@ void * alloc_page_helper(uintptr_t va, uintptr_t pgdir, uint64_t mode, uint64_t 
 
     uint64_t pte_flags = _PAGE_PRESENT | flag
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
-                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY) );
+                          (_PAGE_USER) );
 #endif
 
     /* final page */
@@ -299,7 +299,7 @@ PTE * alloc_page_point_phyc(uintptr_t va, uintptr_t pgdir, uint64_t kva, uint64_
 #else
     uint64_t pte_flags = _PAGE_PRESENT | flag
                           | (mode == MAP_KERNEL ? (_PAGE_ACCESSED | _PAGE_DIRTY) :
-                          (_PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY));
+                          (_PAGE_USER));
 #endif
 
     set_attribute(&third_page[vpn[0]], pte_flags);

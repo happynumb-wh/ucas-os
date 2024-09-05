@@ -16,11 +16,16 @@ typedef struct regs_context
 	reg_t dasicsLibBounds[32];
 
 	reg_t dasicsMaincallEntry;
-	reg_t dasicsReturnPC;
+	reg_t dasicsReturnPC[4];
 	reg_t dasicsFreeZoneReturnPC;	
 
 	reg_t dasicsJmpBounds[8];
 	reg_t dasicsJmpCfg;
+
+	reg_t DasicsScratchCfg;
+	reg_t DasicsScratchBound[2];
+	reg_t DasicsMemLevel;
+	reg_t DasicsJmpLevel;
 
     // N-extensions
 	reg_t ustatus;

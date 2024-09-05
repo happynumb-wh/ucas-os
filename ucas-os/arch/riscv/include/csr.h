@@ -134,7 +134,26 @@
 
 
 #define CSR_DMAINCALL       0x8b0
+
+#ifdef DASICS_NESTED
+#define CSR_DRETURNPC       0x8b4
+#define CSR_DRETURNPC0      0x8b4
+#define CSR_DRETURNPC1      0x8b5
+#define CSR_DRETURNPC2      0x8b6
+#define CSR_DRETURNPC3      0x8b7
+
+#define CSR_SCRATCHCFG      0x8d0
+#define CSR_SCRATCHBOUNDLO  0x8d2
+#define CSR_SCRATCHBOUNDHI  0x8d3
+
+#define CSR_MEMLEVEL        0x8cc
+#define CSR_JMPLEVEL        0x8cd
+
+
+
+#else
 #define CSR_DRETURNPC       0x8b1
+#endif
 
 
 #define CSR_DJBOUND0LO      0x8c0

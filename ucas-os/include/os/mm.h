@@ -42,7 +42,7 @@ static LIST_HEAD(shareMemKey);
 #define MAX_PAGE_NUM 12
 
 // Kernel mem will be 64 MB
-#define KERNEL_END  (KERNEL_BASE + 512 * MB)
+#define KERNEL_END  (KERNEL_BASE + 256 * MB)
 
 // Leave 32MB for the kernel bss_end
 #define INIT_KERNEL_STACK ((uintptr_t)(__BSS_END__))

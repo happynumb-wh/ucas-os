@@ -121,20 +121,34 @@
 
 #define OFFSET_DASICSMAINCALLENTRY          288
 #define OFFSET_DASICSRETURNPC               296
-#define OFFSET_DASICSFREEZONERETURNPC       304
+#define OFFSET_DASICSRETURNPC0              296
+#define OFFSET_DASICSRETURNPC1              304
+#define OFFSET_DASICSRETURNPC2              312
+#define OFFSET_DASICSRETURNPC3              320
 
-#define OFFSET_DASICS_DJBOUND0LO            312
-#define OFFSET_DASICS_DJBOUND0HI            320
-#define OFFSET_DASICS_DJBOUND1LO            328
-#define OFFSET_DASICS_DJBOUND1HI            336
-#define OFFSET_DASICS_DJBOUND2LO            344
-#define OFFSET_DASICS_DJBOUND2HI            352
-#define OFFSET_DASICS_DJBOUND3LO            360
-#define OFFSET_DASICS_DJBOUND3HI            368
 
-#define OFFSET_DASICS_DJCFG                 376
 
-#define OFFSET_DASICS                       384
+#define OFFSET_DASICSFREEZONERETURNPC       328
+
+#define OFFSET_DASICS_DJBOUND0LO            336
+#define OFFSET_DASICS_DJBOUND0HI            344
+#define OFFSET_DASICS_DJBOUND1LO            352
+#define OFFSET_DASICS_DJBOUND1HI            360
+#define OFFSET_DASICS_DJBOUND2LO            368
+#define OFFSET_DASICS_DJBOUND2HI            376
+#define OFFSET_DASICS_DJBOUND3LO            384
+#define OFFSET_DASICS_DJBOUND3HI            392
+
+#define OFFSET_DASICS_DJCFG                 400
+#define OFFSET_DASICS_DSCRATCHCFG           408
+#define OFFSET_DASICS_DSCRATCHCFGBOUNDLO    416
+#define OFFSET_DASICS_DSCRATCHCFGBOUNDHI    424
+#define OFFSET_DASICS_DMEMLEVEL             432
+#define OFFSET_DASICS_DJMPLEVEL             440
+
+
+
+#define OFFSET_DASICS                       448
 
 #define OFFSET_CORE_ID              0
 

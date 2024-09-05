@@ -26,8 +26,7 @@ int main(void)
     int shell_tail = 0;
     char shell_buff[SHELL_BUF_SIZE];
 
-    printf("------------------- COMMAND -------------------\n");
-    printf("> root@wh: ");
+
 
     // char *ripe_argv[] = {
     //     "ripe_attack_generator",
@@ -54,30 +53,37 @@ int main(void)
     //     (void *)0
     // };
 
-    char * perlbench_argv[] = {
-        "perlbench",
-        "-I./lib",
-        "diffmail.pl",
-        "4",
-        "800",
-        "10",
-        "17",
-        "19",
-        "300",
-        "-dasics"
+    // char * perlbench_argv[] = {
+    //     "perlbench",
+    //     "-I./lib",
+    //     "diffmail.pl",
+    //     "4",
+    //     "800",
+    //     "10",
+    //     "17",
+    //     "19",
+    //     "300",
+    //     "-dasics"
+    // };
+
+
+    char * hello_argv[] = {
+        "hello",
+        (void *)0
     };
-
-
-
 
     // pid_t pid =  sys_exec(ripe_argv[0], 12, ripe_argv);
     // pid_t pid =  sys_exec(hmmer_argv[0], 4, hmmer_argv);
-    pid_t pid =  sys_exec(perlbench_argv[0], 10, perlbench_argv);
+    // pid_t pid =  sys_exec(perlbench_argv[0], 10, perlbench_argv);
+    pid_t pid =  sys_exec(hello_argv[0], 1, hello_argv);
 
 
 
     sys_waitpid(pid);
 
+    
+    printf("------------------- COMMAND -------------------\n");
+    printf("> root@wh: ");
     while (1)
     {
         int command = 0;

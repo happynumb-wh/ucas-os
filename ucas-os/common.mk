@@ -27,13 +27,15 @@ QEMU            = $(DIR_QEMU)qemu-system-riscv64
 
 
 # FLAGS
-CONFIG_DEF      = -DDASICS_DEBUG \
-					-DRAMFS \
-					-DPRINT_LOG \
-					-DDASICS
+CONFIG_DEF      = -DPRINT_LOG \
+				  -DDEFAULT_RAMFS
+# -DRAMFS
+# -DDASICS
+# -DDASICS_DEBUG
+# -DDASICS_NESTED
 # -DDASICS_DEBUG_EXCEPTION
 # -DNANHU_V3					
-CFLAGS          = -O0 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
+CFLAGS          = -O2 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
 KERNEL_CFLAGS   = CFLAGS
 USER_CFLGAS     = CFLAGS
 
