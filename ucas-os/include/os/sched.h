@@ -120,6 +120,10 @@ typedef struct pcb
     /* point to parent */
     struct parent{
         struct pcb *parent;
+        // on the father;
+        list_node_t list;
+        // it's son;
+        list_head head;
         uint32_t flag;
     }parent;
     
@@ -279,7 +283,7 @@ int handle_exec_pipe_redirect(pcb_t *initpcb, pid_t *pipe_pid, int argc, const c
 
 
 /* scheduler */
-extern void switch_to(pcb_t *prev, pcb_t *next);
+extern void switch_to(pcb_t *prev, pcb_t *next, int execve);
 extern void do_scheduler(void);
 void do_priori(int,int);
 
@@ -326,6 +330,7 @@ void send_signal(int signum, pcb_t *pcb);
 
 /* exit */
 void handle_exit_pcb(pcb_t * exitPcb);
+void handle_signal_sigchld();
 void release_wait_deal_son(pcb_t * exitPcb);
 
 /* final competition */

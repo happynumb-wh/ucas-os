@@ -612,6 +612,7 @@ ENDPROC(disable_interrupt)
 // the address of previous pcb in a0
 // the address of next pcb in a1
 ENTRY(switch_to)
+  bnez a2, restore_next 
   // save all callee save registers on kernel stack
   addi sp, sp, -(SWITCH_TO_SIZE)
   sd ra, SWITCH_TO_RA(sp)
@@ -631,6 +632,7 @@ ENTRY(switch_to)
   sd sp, SWITCH_TO_SP(sp)
   sd sp, PCB_KERNEL_SP(a0)  // previous pcb
 
+restore_next:
   // restore next
   mv tp, a1  // next pcb
   ld sp, PCB_KERNEL_SP(tp)
@@ -668,6 +670,7 @@ ENTRY(ret_from_exception)
   sd t0, PCB_KERNEL_SP(tp)
 
 restore:
+  call handle_signal
   /* call unlock kernel */
   // call unlock_kernel
   RESTORE_DASICS

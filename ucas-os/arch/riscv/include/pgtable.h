@@ -20,6 +20,11 @@
 #define PTE_NUM (1lu << 9)
 #define PAGE_SIZE 4096 // 4K
 
+#define KB 0x400lu
+#define MB 0x100000lu
+#define GB 0x40000000lu
+
+#define KERNEL_SIZE (8 * GB)
 #define BOOT_PAGE 1
 #define KERNEL_PAGE 0
 

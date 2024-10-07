@@ -194,6 +194,7 @@ void init_pcb_member(pcb_t * initpcb,  task_type_t type, spawn_mode_t mode)
     mylimit.rlim_cur = MAX_FD_NUM;
     mylimit.rlim_max = MAX_FD_NUM;
     init_list(&initpcb->wait_list);
+    init_list(&initpcb->parent.head);
     
     // fd table
     initpcb->pfd = alloc_fd_table();
@@ -249,6 +250,7 @@ void init_clone_pcb(pcb_t * initpcb, task_type_t type, spawn_mode_t mode)
     initpcb->user_stack_base = initpcb->user_stack_top - PAGE_SIZE;
     clear_pcb_time(initpcb);
     init_list(&initpcb->wait_list);
+    init_list(&initpcb->parent.head);
     memcpy(&initpcb->fd_limit,&current_running->fd_limit,sizeof(struct rlimit));
     memcpy(&initpcb->mm, &current_running->mm, sizeof(mm_struct_t));
     //itimer
@@ -465,7 +467,7 @@ uint64_t get_num_from_parm(const char *parm[])
  */
 void copy_on_write(PTE src_pgdir, PTE dst_pgdir)
 {
-    PTE *kernelBase = (PTE *)pa2kva(PGDIR_PA);    
+    PTE *kernelBase = (PTE *)PGDIR_PA;    
     PTE *src_base = (PTE *)src_pgdir;
     PTE *dst_base = (PTE *)dst_pgdir;
     for (int vpn2 = 0; vpn2 < PTE_NUM; vpn2++)
@@ -524,17 +526,29 @@ void handle_exit_pcb(pcb_t * exitPcb)
 {
     release_wait_deal_son(exitPcb);
 
-    #ifdef FAST
-        int recycle_page_num;
-        if (!(exitPcb->flag & CLONE_VM)) 
-            recycle_page_num = recycle_page_part(exitPcb->pgdir, exitPcb->exe_load);
-    #else
-        int __maybe_unused recycle_page_num;
-        if (!(exitPcb->flag & CLONE_VM)) 
-            recycle_page_num = recycle_page_default(exitPcb->pgdir);
-    #endif
+    int __maybe_unused recycle_page_num;
+    if (!(exitPcb->flag & CLONE_VM)) 
+        recycle_page_num = recycle_page_default(exitPcb->pgdir);
     recycle_pcb_default(exitPcb);
     freePage(exitPcb->kernel_stack_base);    
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void handle_signal_sigchld()
+{
+    pcb_t *child_qentry = NULL, *child_q;
+
+    list_for_each_entry_safe(child_qentry, child_q, &current_running->parent.head, parent.list)
+    {
+        if (child_qentry->status == TASK_ZOMBIE)
+        {
+            handle_exit_pcb(child_qentry);
+        }
+    }
 }
 
 
@@ -580,6 +594,9 @@ int recycle_pcb_default(pcb_t * recyclePCB){
 
     /* do */
     recyclePCB->pge_num = 0;
+
+    // leave child list
+    list_del(&recyclePCB->parent.list);
 
     // free fd
     free_fd_table(recyclePCB->pfd);

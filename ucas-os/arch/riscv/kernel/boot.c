@@ -6,12 +6,12 @@ typedef void (*kernel_entry_t)(unsigned long);
 uintptr_t phyc_entry  = 0;
 
 uintptr_t kernel_pgd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
-uintptr_t kernel_pmd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
+uintptr_t kernel_pmd[KERNEL_SIZE/GB][PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
 uintptr_t boot_pmd[PAGE_SIZE / RISCV_SZPTR] __page_aligned_bss;
 
 
 // using 2MB large page
-static void __init map_page(int boot, uint64_t va, uint64_t pa, PTE *pgdir)
+static void __init map_page(uint64_t va, uint64_t pa, PTE *pgdir, PTE *pmd_set)
 {
     va &= VA_MASK;
     uint64_t vpn2 =
@@ -20,8 +20,9 @@ static void __init map_page(int boot, uint64_t va, uint64_t pa, PTE *pgdir)
                     (va >> (NORMAL_PAGE_SHIFT + PPN_BITS));
     if (pgdir[vpn2] == 0) {
         // alloc a new second-level page directory
-        set_pfn(&pgdir[vpn2], boot == BOOT_PAGE ? (uintptr_t)boot_pmd >> NORMAL_PAGE_SHIFT :\
-                                 (uintptr_t)kernel_pmd >> NORMAL_PAGE_SHIFT);
+        set_pfn(&pgdir[vpn2], (uintptr_t)pmd_set >> NORMAL_PAGE_SHIFT);
+        // boot == BOOT_PAGE ? (uintptr_t)boot_pmd >> NORMAL_PAGE_SHIFT :
+        //                          (uintptr_t)kernel_pmd >> NORMAL_PAGE_SHIFT);
         set_attribute(&pgdir[vpn2], _PAGE_PRESENT);
         clear_pgdir(get_pa(pgdir[vpn2]));
     }
@@ -50,14 +51,29 @@ static void __init setup_vm(uintptr_t entry)
     // address(kpa) kva = kpa + 0xffff_ffc0_0000_0000 use 2MB page,
     // map all physical memory
     PTE *early_pgdir = (PTE *)PGDIR_PA;
-    for (uint64_t kva = 0xffffffc080000000lu;
-         kva < 0xffffffc0c0000000lu; kva += 0x200000lu) {
-        map_page(KERNEL_PAGE, kva, kva2pa(kva), early_pgdir);
+    // for (uint64_t kva = 0xffffffc080000000lu;
+    //      kva < 0xffffffc100000000lu; kva += 0x200000lu) {
+    //     map_page(kva, kva2pa(kva), early_pgdir, kernel_pmd);
+    // }
+    uintptr_t kernel_begin = 0xffffffc080000000lu;
+    uintptr_t kernel_end = 0xffffffc080000000lu + KERNEL_SIZE;
+
+    uintptr_t g = 0;
+    
+
+    for (uintptr_t kva_pgd = kernel_begin; kva_pgd < kernel_end; kva_pgd += GB)
+    {
+        for (uintptr_t kva_pmd = kva_pgd; kva_pmd < kva_pgd + GB; kva_pmd += 2 * MB)
+        {
+            map_page(kva_pmd, kva2pa(kva_pmd), early_pgdir, kernel_pmd[g]);
+        }
+        g++;        
     }
+    
     // map boot address
     for (uint64_t pa = phyc_entry; pa < (uintptr_t)_end;
          pa += 0x200000lu) {
-        map_page(BOOT_PAGE, pa, pa, early_pgdir);
+        map_page(pa, pa, early_pgdir, boot_pmd);
     }
     enable_vm();
 }

@@ -76,7 +76,10 @@ int recycle_page_voilent(uintptr_t pgdir){
         freePage((uintptr_t)second_page);        
         recyclePageNum++;
     }
-    
+    /* change the pgdir to kernel */
+    set_satp(SATP_MODE_SV39, 0, \
+        (uint64_t)kva2pa(PGDIR_PA) >> 12);
+    local_flush_tlb_all();    
     freePage((uintptr_t)recycleBase);
     recyclePageNum++;
     return recyclePageNum;

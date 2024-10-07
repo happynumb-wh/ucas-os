@@ -26,7 +26,7 @@ void reset_irq_timer()
     check_sleeping();
     check_futex_timeout();
     itimer_check();
-    sbi_set_timer(get_ticks() + time_base);
+    sbi_set_timer(get_ticks() + time_base/ 100);
     do_scheduler();
 }
 

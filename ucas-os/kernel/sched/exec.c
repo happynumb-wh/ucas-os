@@ -360,6 +360,10 @@ pid_t do_exec(const char *file_name, int argc, const char* argv[], spawn_mode_t 
     init_pcb_stack(initpcb->kernel_sp, initpcb->user_sp, entry_point, initpcb);
     // add to ready queue
     list_add(&initpcb->list, &ready_queue);
+    if (initpcb->pid == 1)
+        initpcb->parent.parent = initpcb;
+    // Add to parent's list
+    list_add_tail(&initpcb->parent.list, &initpcb->parent.parent->parent.head);
 
     init_dasics_reg(initpcb);
 
@@ -452,11 +456,9 @@ pid_t do_execve(const char* path, const char* argv[], const char * envp[]){
 
     // add in the ready_queue
     list_add(&initpcb->list, &ready_queue);
-    #ifdef FAST
-        recycle_page_part(pre_pgdir, pre_exe_load);
-    #else
-        recycle_page_voilent(pre_pgdir);
-    #endif
+
+
+    recycle_page_voilent(pre_pgdir);
 
     // no signal
     do_scheduler();

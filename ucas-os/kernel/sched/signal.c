@@ -230,6 +230,7 @@ void handle_signal()
                         do_exit(1);
                         assert(0); /* never return */
                     case SIGCHLD:
+                        handle_signal_sigchld();
                     case SIGCANCEL:
                         current_running->is_handle_signal = 0;
                         break;

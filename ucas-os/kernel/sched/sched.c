@@ -62,6 +62,7 @@ void do_scheduler(void)
 {
     uint64_t cpu_id = get_current_cpu_id();
     pcb_t * prev_running = current_running;  
+    int is_execve = 0;
     // if (list_empty(&ready_queue)) goto end;
     if (current_running->status == TASK_RUNNING && current_running->pid) {
         current_running->status = TASK_READY;
@@ -98,9 +99,10 @@ void do_scheduler(void)
     if (current_running->execve)
     {
         current_running->execve = 0;
-        ret_from_exception();
+        is_execve = 1;
     }
-    switch_to(prev_running, current_running);  
+    if (is_execve || current_running != prev_running)
+        switch_to(prev_running, current_running, is_execve);  
 }
 
 
@@ -151,6 +153,7 @@ void do_ps(void)
                         pcb[i].status == TASK_EXITED  ? "EXITED  " :
                         pcb[i].status == TASK_BLOCKED ? "BLOCKED " :
                         pcb[i].status == TASK_READY   ? "READY   " :
+                        pcb[i].status == TASK_ZOMBIE  ? "ZOMBIE  " :
                         pcb[i].status == TASK_RUNNING ? "RUNNING " :
                                                         "UNKNOWN ");
             printk("mask: 0x%lx", pcb[i].mask);
@@ -214,6 +217,8 @@ void do_exit(int32_t exit_status){
     
     pcb_t * exit_pcb;
     exit_pcb = current_running;
+    // Change child's father
+    pcb_t *child_qentry = NULL, *child_q;
 
     /* exit status */
     current_running->exit_status = exit_status;
@@ -223,6 +228,22 @@ void do_exit(int32_t exit_status){
         do_futex(current_running->clear_ctid, FUTEX_WAKE, 1, NULL, NULL, 0);
     }
     
+    if (current_running->pid == 1)
+    {
+        printk("[Error]: Init process exit\n");
+        assert(0);
+    }
+
+    // Change father
+    assert(exit_pcb->parent.parent != NULL);
+    list_for_each_entry_safe(child_qentry, child_q, &exit_pcb->parent.head, parent.list)
+    {
+        list_del(&child_qentry->parent.list);
+        list_add_tail(&child_qentry->parent.list, &exit_pcb->parent.parent->parent.head);
+        child_qentry->parent.parent = exit_pcb->parent.parent;
+    }
+    
+
     if (current_running->mode == AUTO_CLEANUP_ON_EXIT) {
         /* free the wait */
         handle_exit_pcb(exit_pcb);
@@ -235,7 +256,6 @@ void do_exit(int32_t exit_status){
             send_signal(SIGCHLD, current_running->parent.parent);
         }        
     }
-    printk("Finish do_exit\n");
     /* scheduler */
     do_scheduler();  
 }
@@ -314,6 +334,8 @@ pid_t do_clone(uint32_t flag, uint64_t stack, pid_t ptid, void *tls, pid_t ctid)
     init_clone_stack(initpcb, tls);
 
     list_add(&initpcb->list, &ready_queue);
+    list_add_tail(&initpcb->parent.list, &initpcb->parent.parent->parent.head);
+
     // printk("clone end\n");
     return initpcb->pid;
 }

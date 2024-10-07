@@ -28,13 +28,14 @@ QEMU            = $(DIR_QEMU)qemu-system-riscv64
 
 # FLAGS
 CONFIG_DEF      = -DPRINT_LOG \
-				  -DDEFAULT_RAMFS
-# -DRAMFS
-# -DDASICS
-# -DDASICS_DEBUG
-# -DDASICS_NESTED
+				-DRAMFS \
+				-DDASICS \
+				-DDASICS_DEBUG \
+				-DDASICS_NESTED
+
 # -DDASICS_DEBUG_EXCEPTION
-# -DNANHU_V3					
+# -DNANHU_V3	
+# -DDEFAULT_RAMFS				
 CFLAGS          = -O2 -MMD -fno-builtin -nostdlib -nostdinc -Wall -mcmodel=medany -ggdb3 $(CONFIG_DEF) -Wno-main
 KERNEL_CFLAGS   = CFLAGS
 USER_CFLGAS     = CFLAGS
@@ -42,7 +43,7 @@ USER_CFLGAS     = CFLAGS
 
 OBJCOPY_FLAGS 	= --set-section-flags .bss=alloc,contents --set-section-flags .sbss=alloc,contents -O binary
 
-QEMU_OPTS       = -M virt -m 1G \
+QEMU_OPTS       = -M virt -m 8G \
 				  -nographic -kernel $(DIR_BUILD)/kernel.bin \
 				  -drive file=$(PWD)/img/sd.img,if=none,format=raw,id=x0 \
 				  -device virtio-blk-device,drive=x0 \

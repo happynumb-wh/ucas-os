@@ -274,7 +274,9 @@ static void setup_first_core(){
 // The beginning of everything >_< ~~~~~~~~~~~~~~
 int start_kernel(unsigned long mhartid)
 {   
-    if (!mhartid) {
+    // Init head
+    init_list(&current->parent.head);
+    if (!mhartid) {  
         setup_first_core();
     } else {
         printk("> [INIT] Second core enter kernel\n");

@@ -15,9 +15,6 @@ static LIST_HEAD(usedPageList);
 /* shareMemKay */
 static LIST_HEAD(shareMemKey);
 
-#define KB 0x400lu
-#define MB 0x100000lu
-#define GB 0x40000000lu
 
 
 
@@ -42,7 +39,7 @@ static LIST_HEAD(shareMemKey);
 #define MAX_PAGE_NUM 12
 
 // Kernel mem will be 64 MB
-#define KERNEL_END  (KERNEL_BASE + 256 * MB)
+#define KERNEL_END  (KERNEL_BASE + 768 * MB)
 
 // Leave 32MB for the kernel bss_end
 #define INIT_KERNEL_STACK ((uintptr_t)(__BSS_END__))
