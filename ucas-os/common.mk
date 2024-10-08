@@ -45,8 +45,6 @@ OBJCOPY_FLAGS 	= --set-section-flags .bss=alloc,contents --set-section-flags .sb
 
 QEMU_OPTS       = -M virt -m 8G \
 				  -nographic -kernel $(DIR_BUILD)/kernel.bin \
-				  -drive file=$(PWD)/img/sd.img,if=none,format=raw,id=x0 \
-				  -device virtio-blk-device,drive=x0 \
 				  -bios $(DIR_OPENSBI)/build/platform/generic/firmware/fw_jump.bin
 QEMU_DEBUG_OPT  = -s -S
 

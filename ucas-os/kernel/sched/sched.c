@@ -19,7 +19,7 @@ pcb_t pcb[NUM_MAX_TASK];
 pcb_t * current_running_master;
 pcb_t * current_running_slave;
 const ptr_t pid0_stack_master = INIT_KERNEL_STACK_MSTER; 
-const ptr_t pid0_stack_slave = INIT_KERNEL_STACK_MSTER; 
+const ptr_t pid0_stack_slave = INIT_KERNEL_STACK_SLAVE; 
 
 
 pcb_t pid0_pcb_master = {
