@@ -6,8 +6,11 @@ DIR_QEMU       ?= /home/wanghan/Workspace/QEMU-upgrade/upgrade-qemu/build/
 else 
 endif
 
-DIR_OPENSBI		= /home/wanghan/riscv/opensbi
-
+ifeq ($(DIR_OPENSBI),)
+DIR_OPENSBI	   ?= $(shell pwd)/../opensbi
+else
+endif
+ 
 
 # Compiler
 HOST_CC         = gcc
@@ -24,15 +27,19 @@ GDB             = $(CROSS_PREFIX)gdb
 RANLIB			= $(CROSS_PREFIX)ranlib
 QEMU            = $(DIR_QEMU)qemu-system-riscv64
 
+# Opensbi
+OPENSBI_BIOS    = $(DIR_OPENSBI)//build/platform/generic/firmware/fw_jump.bin
+
 
 
 # FLAGS
 CONFIG_DEF      = -DPRINT_LOG \
-				-DRAMFS \
-				-DDASICS \
-				-DDASICS_DEBUG \
-				-DDASICS_NESTED
+				  -DDEFAULT_RAMFS
 
+# -DRAMFS \
+# -DDASICS \
+# -DDASICS_DEBUG \
+# -DDASICS_NESTED
 # -DDASICS_DEBUG_EXCEPTION
 # -DNANHU_V3	
 # -DDEFAULT_RAMFS				

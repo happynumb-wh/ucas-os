@@ -72,14 +72,15 @@ ELF_ELF2CHAR = $(DIR_BUILD)/$(notdir $(SRC_ELF2CHAR:.c=))
 SRC_GENERATEMAPPING = $(DIR_TOOLS)/generateMapping.c
 ELF_GENERATEMAPPING = $(DIR_BUILD)/$(notdir $(SRC_GENERATEMAPPING:.c=))
 
+
+
+
 # -----------------------------------------------------------------------
 # Top-level Rules
 # -----------------------------------------------------------------------
+.PHONY: all elf clean
 
-# 
-
-
-all: dirs tools elf kbin asm
+all:dirs kbin asm
 
 dirs:
 	@mkdir -p $(DIR_BUILD)
@@ -100,7 +101,7 @@ asm:  $(ELF_KERNEL) $(ELF_USER)
 gdb:
 	$(GDB) $(ELF_KERNEL) -ex "target remote:1234" -x .gdbinit
 
-run:
+run: $(OPENSBI_BIOS)
 	$(QEMU) $(QEMU_OPTS)
 
 run-smp:
@@ -116,8 +117,12 @@ debug-smp:
 minicom:
 	sudo $(MINICOM) -D $(TTYUSB1)
 
-.PHONY: dirs vmk_arch clean asm gdb run debug minicom 
-
+# Opensbi
+$(OPENSBI_BIOS):
+ifeq ($(wildcard $(DIR_OPENSBI)/*),)
+	git submodule update --init $((DIR_OPENSBI)
+endif
+	$(MAKE) PLATFORM=generic CROSS_COMPILE=$(CROSS_PREFIX) -j`nproc` -C $(DIR_OPENSBI)
 
 # -----------------------------------------------------------------------
 # UCAS-OS Rules
@@ -184,10 +189,9 @@ USER_DEPS = $(addprefix ./build/, \
 elf: $(ELF_KERNEL) $(LIB_TINYC) $(ELF_USER)
 
 $(KERNEL_BIN): $(ELF_KERNEL)
-	@echo OBJCPY + $<
+	@echo OBJCOPY + $<
 	@$(OBJCOPY) $(OBJCOPY_FLAGS) $< $@ 
 
-# image: $(ELF_IMAGE)
 kbin: $(KERNEL_BIN)
 
 

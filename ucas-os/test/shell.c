@@ -67,20 +67,20 @@ int main(void)
     // };
 
 
-    char * hello_argv[] = {
-        "target",
-        "-dasics",
-        (void *)0
-    };
+    // char * hello_argv[] = {
+    //     "target",
+    //     "-dasics",
+    //     (void *)0
+    // };
 
     // pid_t pid =  sys_exec(ripe_argv[0], 12, ripe_argv);
     // pid_t pid =  sys_exec(hmmer_argv[0], 4, hmmer_argv);
     // pid_t pid =  sys_exec(perlbench_argv[0], 10, perlbench_argv);
-    pid_t pid =  sys_exec(hello_argv[0], 2, hello_argv);
+    // pid_t pid =  sys_exec(hello_argv[0], 2, hello_argv);
 
 
 
-    sys_waitpid(pid);
+    // sys_waitpid(pid);
 
     
     printf("------------------- COMMAND -------------------\n");

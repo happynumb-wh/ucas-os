@@ -1,0 +1,4 @@
+[submodule "opensbi"]
+	path = opensbi
+	url = https://github.com/riscv-software-src/opensbi.git
+	branch = realease-1.5.x
