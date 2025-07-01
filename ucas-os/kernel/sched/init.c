@@ -731,6 +731,10 @@ void init_dasics_reg(pcb_t *initpcb)
     #ifdef DASICS_DEBUG
         printk("[kernel]: ulibtext start: 0x%lx, end: 0x%lx\n", pr_mm(initpcb).ulibtext_start, pr_mm(initpcb).ulibtext_end);
     #endif
+        pr_regs(initpcb)->dasicsJmpBounds[dasics_jmpidx * 2] = align8down(pr_mm(initpcb).ulibtext_start);
+        pr_regs(initpcb)->dasicsJmpBounds[dasics_jmpidx * 2 + 1] = align8up(pr_mm(initpcb).ulibtext_end);
+
+        pr_regs(initpcb)->dasicsJmpCfg |= (DASICS_JUMPCFG_V << (dasics_jmpidx++)*16);    
         /* get read-only datas. */
         /* This area contains some other codes, however, lib text should not execute them. */
         pr_regs(initpcb)->dasicsLibBounds[dasics_libidx * 2] = align8down(pr_mm(initpcb).start_brk);

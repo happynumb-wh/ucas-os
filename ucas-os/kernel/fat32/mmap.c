@@ -147,14 +147,14 @@ uint64_t fat32_mmap(void *start, size_t len, uint64_t prot, uint64_t flags, uint
 
     }    
 end:
-    printk("[mmap]: addr: 0x%lx\n", start);
+    // printk("[mmap]: addr: 0x%lx\n", start);
     return (uint64_t)start;
 }
 
 int64 fat32_munmap(void *start, size_t len)
 {
     assert( ((uint64_t)start & 0xfff) == 0);
-    printk("[munmap] start:0x%lx, len: 0x%lx\n", start, len);
+    // printk("[munmap] start:0x%lx, len: 0x%lx\n", start, len);
     // for (int i = 0; i < MAX_FILE_NUM; i++)
     // {
     //     if (current_running->pfd[i].used && current_running->pfd[i].mmap.used && current_running->pfd[i].mmap.start == start){
